@@ -21,6 +21,15 @@ export function signToken(user) {
   return jwt.sign({ sub: user.id, username: user.username }, getJwtSecret(), { expiresIn: '7d' })
 }
 
+export function setSessionCookie(res, token) {
+  res.cookie(COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  })
+}
+
 export function requireAuth(req, res, next) {
   const token = req.cookies?.[COOKIE_NAME]
   if (!token) {

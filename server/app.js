@@ -4,11 +4,12 @@ import cookieParser from 'cookie-parser'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
 import { getDb, generateUserId } from './db.js'
-import { signToken, requireAuth, SESSION_COOKIE } from './middleware/auth.js'
+import { signToken, requireAuth, setSessionCookie, SESSION_COOKIE } from './middleware/auth.js'
 import { fetchSentiment } from './sentiment.js'
 
 const DEFAULT_TWEETS_LIMIT = 50
 const MAX_TWEETS_LIMIT = 100
+const MIN_PASSWORD_LENGTH = 8
 
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next)
@@ -17,6 +18,10 @@ function asyncHandler(fn) {
 function normalizeSentiment(value) {
   if (value === null || value === undefined) return null
   return value === 1 || value === true
+}
+
+function normalizeUsername(username) {
+  return username.trim().toLowerCase()
 }
 
 export function createApp() {
@@ -57,14 +62,14 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const { username, password } = req.body ?? {}
 
-      if (!username?.trim() || !password || password.length < 8) {
+      if (!username?.trim() || !password || password.length < MIN_PASSWORD_LENGTH) {
         return res.status(400).json({
           success: false,
-          error: 'Username and password are required fields. Password must be at least 8 characters long.',
+          error: `Username and password are required fields. Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
         })
       }
 
-      const key = username.trim().toLowerCase()
+      const key = normalizeUsername(username)
       const db = getDb()
 
       const existing = await db.getAsync('SELECT id FROM users WHERE username = $1;', [key])
@@ -96,7 +101,7 @@ export function createApp() {
         })
       }
 
-      const key = username.trim().toLowerCase()
+      const key = normalizeUsername(username)
       const db = getDb()
 
       const user = await db.getAsync(
@@ -113,12 +118,7 @@ export function createApp() {
       }
 
       const token = signToken(user)
-      res.cookie(SESSION_COOKIE, token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      })
+      setSessionCookie(res, token)
 
       res.json({ success: true, user: { id: user.id, username: user.username } })
     })
@@ -161,7 +161,7 @@ export function createApp() {
         return res.status(400).json({ success: false, error: 'Username is required.' })
       }
 
-      const key = username.trim().toLowerCase()
+      const key = normalizeUsername(username)
       const db = getDb()
 
       const existing = await db.getAsync('SELECT id FROM users WHERE username = $1 AND id != $2;', [
@@ -175,12 +175,7 @@ export function createApp() {
       await db.runAsync('UPDATE users SET username = $1 WHERE id = $2;', [key, req.user.id])
 
       const token = signToken({ id: req.user.id, username: key })
-      res.cookie(SESSION_COOKIE, token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      })
+      setSessionCookie(res, token)
 
       res.json({ success: true, profile: { id: req.user.id, username: key } })
     })
@@ -207,10 +202,10 @@ export function createApp() {
         return res.status(401).json({ success: false, error: 'Current password is incorrect.' })
       }
 
-      if (newPassword.length < 8) {
+      if (newPassword.length < MIN_PASSWORD_LENGTH) {
         return res.status(400).json({
           success: false,
-          error: 'New password must be at least 8 characters long.',
+          error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
         })
       }
 
@@ -255,40 +250,6 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const db = getDb()
       const { scope, search } = req.query
-
-      // const conditions = []
-      // const params = []
-
-      // if (scope === 'mine') {
-      //   conditions.push('tweets.user_id = ?')
-      //   params.push(req.user.id)
-      // }
-
-      // const term = typeof search === 'string' ? search.trim() : ''
-      // if (term) {
-      //   conditions.push('tweets.content LIKE ?')
-      //   params.push(`%${term}%`)
-      // }
-
-      // const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
-
-      // const rawLimit = Number.parseInt(req.query.limit, 10)
-      // const limit =
-      //   Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_TWEETS_LIMIT) : DEFAULT_TWEETS_LIMIT
-
-      // const rawOffset = Number.parseInt(req.query.offset, 10)
-      // const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0
-
-      // // Fetch one extra row to know whether there's a next page without a second COUNT query.
-      // const rows = await db.allAsync(
-      //   `SELECT tweets.id, tweets.content, tweets.created_at, tweets.sentiment, users.username
-      //    FROM tweets
-      //    JOIN users ON tweets.user_id = users.id
-      //    ${whereClause}
-      //    ORDER BY tweets.created_at DESC, tweets.id DESC
-      //    LIMIT ? OFFSET ?;`,
-      //   [...params, limit + 1, offset]
-      // )
 
       const conditions = []
       const params = []
@@ -353,14 +314,6 @@ export function createApp() {
       const db = getDb()
       const sentiment = await fetchSentiment(trimmed) // boolean | null, never throws
 
-      // const id = await db.runInsertAsync(
-      //   'INSERT INTO tweets (user_id, content, sentiment) VALUES (?, ?, ?);',
-      //   [req.user.id, trimmed, sentiment === null ? null : sentiment ? 1 : 0]
-      // )
-      // const row = await db.getAsync(
-      //   'SELECT id, content, created_at, sentiment FROM tweets WHERE id = ?;',
-      //   [id]
-      // )
       const id = await db.runInsertAsync(
         'INSERT INTO tweets (user_id, content, sentiment) VALUES ($1, $2, $3) RETURNING id;',
         [req.user.id, trimmed, sentiment === null ? null : sentiment ? 1 : 0]
@@ -375,7 +328,7 @@ export function createApp() {
       // down/unreachable/timed out/malformed) stays posted with an unknown
       // sentiment, to be resolved by a later re-check.
       if (sentiment === false) {
-        await db.runAsync('DELETE FROM tweets WHERE id = ?;', [id])
+        await db.runAsync('DELETE FROM tweets WHERE id = $1;', [id])
         return res.status(422).json({
           success: false,
           error: 'This tweet was flagged as negative and has been removed.',

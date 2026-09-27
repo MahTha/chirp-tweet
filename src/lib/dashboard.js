@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.PROD ? '':'http://localhost:5000'
+import { apiFetch } from './api.js'
 
 export async function fetchTweets({ scope, search } = {}) {
   const params = new URLSearchParams()
@@ -6,47 +6,22 @@ export async function fetchTweets({ scope, search } = {}) {
   if (search?.trim()) params.set('search', search.trim())
   const qs = params.toString()
 
-  let res
-  try {
-    res = await fetch(`${API_BASE}/api/tweets${qs ? `?${qs}` : ''}`, { credentials: 'include' })
-  } catch {
-    return { ok: false, error: 'Could not reach the server. Please try again.' }
-  }
-
-  const data = await res.json()
-  if (data.success) return { ok: true, tweets: data.tweets }
-  return { ok: false, error: data.error }
+  const result = await apiFetch(`/api/tweets${qs ? `?${qs}` : ''}`)
+  return result.ok ? { ok: true, tweets: result.data.tweets } : result
 }
 
 export async function fetchDashboardSummary() {
-  let res
-  try {
-    res = await fetch(`${API_BASE}/api/dashboard/summary`, { credentials: 'include' })
-  } catch {
-    return { ok: false, error: 'Could not reach the server. Please try again.' }
-  }
-
-  const data = await res.json()
-  if (data.success) return { ok: true, stats: data.stats, breakdown: data.breakdown }
-  return { ok: false, error: data.error }
+  const result = await apiFetch('/api/dashboard/summary')
+  return result.ok ? { ok: true, stats: result.data.stats, breakdown: result.data.breakdown } : result
 }
 
 export async function postTweet(content) {
-  let res
-  try {
-    res = await fetch(`${API_BASE}/api/tweets`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    })
-  } catch {
-    return { ok: false, error: 'Could not reach the server. Please try again.' }
-  }
-
-  const data = await res.json()
-  if (data.success) return { ok: true, tweet: data.tweet }
-  return { ok: false, error: data.error }
+  const result = await apiFetch('/api/tweets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  })
+  return result.ok ? { ok: true, tweet: result.data.tweet } : result
 }
 
 export function formatRelativeTime(createdAt) {
