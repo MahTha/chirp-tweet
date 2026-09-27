@@ -39,9 +39,8 @@ export default function Home() {
   const [scope, setScope] = useState('all')
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [feedLoading, setFeedLoading] = useState(false)
+  const [feedLoading, setFeedLoading] = useState(true)
   const [feedError, setFeedError] = useState('')
-  const isFirstRun = useRef(true)
 
   const [composerText, setComposerText] = useState('')
   const [posting, setPosting] = useState(false)
@@ -51,22 +50,15 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([fetchTweets({ scope: 'all', search: '' }), fetchDashboardSummary()])
-      .then(([tweetsResult, summaryResult]) => {
+    fetchDashboardSummary()
+      .then((result) => {
         if (cancelled) return
-
-        if (!tweetsResult.ok) {
-          setError(tweetsResult.error)
+        if (!result.ok) {
+          setError(result.error)
           return
         }
-        if (!summaryResult.ok) {
-          setError(summaryResult.error)
-          return
-        }
-
-        setTweets(tweetsResult.tweets)
-        setStats(summaryResult.stats)
-        setBreakdown(summaryResult.breakdown)
+        setStats(result.stats)
+        setBreakdown(result.breakdown)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -85,11 +77,6 @@ export default function Home() {
   }, [searchInput])
 
   useEffect(() => {
-    if (isFirstRun.current) {
-      isFirstRun.current = false
-      return
-    }
-
     let cancelled = false
     setFeedLoading(true)
     setFeedError('')
@@ -269,17 +256,13 @@ export default function Home() {
           </div>
         </form>
 
-        {loading && <p className="home-feed-status">Loading tweets…</p>}
+        {feedLoading && <p className="home-feed-status">Loading tweets…</p>}
 
-        {!loading && (error || feedError) && (
-          <p className="home-feed-status home-feed-error">{error || feedError}</p>
+        {!feedLoading && feedError && (
+          <p className="home-feed-status home-feed-error">{feedError}</p>
         )}
 
-        {!loading && !error && !feedError && feedLoading && (
-          <p className="home-feed-status">Loading tweets…</p>
-        )}
-
-        {!loading && !error && !feedError && !feedLoading && tweets.length === 0 && (
+        {!feedLoading && !feedError && tweets.length === 0 && (
           <div className="home-card home-feed-empty">
             <p>
               {scope === 'mine' || debouncedSearch
@@ -289,7 +272,7 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && !error && !feedError && !feedLoading && tweets.length > 0 && (
+        {!feedLoading && !feedError && tweets.length > 0 && (
           <ul className="tweet-list">
             {tweets.map((tweet) => (
               <li key={tweet.id} className="tweet">
@@ -312,23 +295,30 @@ export default function Home() {
       <aside className="home-right">
         <div className="home-card home-stats-card">
           <h2>Summary stats</h2>
-          <div className="home-stat-row">
-            <span>Total tweets</span>
-            <strong>{loading ? '—' : stats.totalTweets}</strong>
-          </div>
-          <div className="home-stat-row">
-            <span>Total authors</span>
-            <strong>{loading ? '—' : stats.totalAuthors}</strong>
-          </div>
+          {error ? (
+            <p className="home-card-status home-feed-error">{error}</p>
+          ) : (
+            <>
+              <div className="home-stat-row">
+                <span>Total tweets</span>
+                <strong>{loading ? '—' : stats.totalTweets}</strong>
+              </div>
+              <div className="home-stat-row">
+                <span>Total authors</span>
+                <strong>{loading ? '—' : stats.totalAuthors}</strong>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="home-card home-breakdown-card">
           <h2>Author breakdown</h2>
-          {loading && <p className="home-card-status">Loading…</p>}
-          {!loading && breakdown.length === 0 && (
+          {error && <p className="home-card-status home-feed-error">{error}</p>}
+          {!error && loading && <p className="home-card-status">Loading…</p>}
+          {!error && !loading && breakdown.length === 0 && (
             <p className="home-card-status">No authors yet</p>
           )}
-          {!loading && breakdown.length > 0 && (
+          {!error && !loading && breakdown.length > 0 && (
             <ul className="home-breakdown-list">
               {breakdown.map((author) => (
                 <li key={author.username} className="home-breakdown-row">
