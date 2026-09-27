@@ -231,12 +231,7 @@ export function createApp() {
       const db = getDb()
 
       const stats = await db.getAsync(
-        `SELECT users.username, COUNT(tweets.id) as 
-        tweet_count
-         FROM tweets
-         JOIN users ON tweets.user_id = users.id
-         GROUP BY users.username
-         ORDER BY tweet_count DESC;`
+        'SELECT COUNT(*)::int as total_tweets, COUNT(DISTINCT user_id)::int as total_authors FROM tweets;'
       )
       const breakdown = await db.allAsync(
         `SELECT users.username, COUNT(tweets.id)::int as tweet_count
