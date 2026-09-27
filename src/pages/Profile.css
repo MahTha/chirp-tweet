@@ -1,0 +1,49 @@
+.profile-page {
+  flex: 1;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 3rem 1rem;
+  background: var(--chirp-page-gradient);
+}
+
+.profile-content {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-back {
+  align-self: flex-start;
+  color: var(--chirp-blue);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.profile-card {
+  background: var(--chirp-card-bg);
+  border: 1px solid var(--chirp-border);
+  border-radius: 20px;
+  padding: 2rem;
+  transition: background-color 0.2s ease;
+}
+
+.profile-card h2 {
+  font-size: 1.3rem;
+  margin: 0 0 1.25rem;
+}
+
+.profile-joined {
+  margin: -0.75rem 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--chirp-gray);
+}
+
+.profile-loading {
+  color: var(--chirp-gray);
+  font-size: 0.9rem;
+}

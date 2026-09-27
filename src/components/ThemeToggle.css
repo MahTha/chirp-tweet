@@ -1,0 +1,38 @@
+.theme-toggle {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 9999px;
+  border: 1px solid var(--chirp-border);
+  background: var(--chirp-card-bg);
+  color: var(--chirp-black);
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(15, 20, 25, 0.15);
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--chirp-hover);
+  border-color: var(--chirp-blue);
+  transform: translateY(-2px);
+}
+
+.theme-toggle-icon {
+  line-height: 1;
+}
+
+@media (max-width: 480px) {
+  .theme-toggle {
+    right: 1rem;
+    bottom: 1rem;
+    width: 46px;
+    height: 46px;
+  }
+}

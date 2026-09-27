@@ -1,0 +1,104 @@
+:root {
+  --chirp-blue: #1d9bf0;
+  --chirp-blue-dark: #1a8cd8;
+  --chirp-black: #0f1419;
+  --chirp-gray: #536471;
+  --chirp-border: #ccd3d9;
+  --chirp-bg: #eef2f6;
+  --chirp-hover: #dbeafe;
+  --chirp-red: #f4212e;
+  --chirp-card-bg: #ffffff;
+  --chirp-bg-translucent: rgba(238, 242, 246, 0.85);
+  --chirp-page-gradient: linear-gradient(180deg, #dbeafe 0%, #eef2f6 55%);
+  --chirp-input-border: #ccd3d9;
+
+  color-scheme: light;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --chirp-black: #e7e9ea;
+  --chirp-gray: #71767b;
+  --chirp-border: #2f3336;
+  --chirp-bg: #000000;
+  --chirp-hover: #16181c;
+  --chirp-card-bg: #16181c;
+  --chirp-bg-translucent: rgba(0, 0, 0, 0.75);
+  --chirp-page-gradient: linear-gradient(180deg, #061826 0%, #000000 55%);
+  --chirp-input-border: #3e4144;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--chirp-bg);
+  color: var(--chirp-black);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+.chirp-logo {
+  color: var(--chirp-blue);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--chirp-blue);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--chirp-blue-dark);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--chirp-black);
+  border-color: var(--chirp-input-border);
+}
+
+.btn-outline:hover {
+  background: var(--chirp-hover);
+}
+
+.btn-wide {
+  width: 100%;
+}
