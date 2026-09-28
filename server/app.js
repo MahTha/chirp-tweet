@@ -3,6 +3,7 @@ import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
+import { waitUntil } from '@vercel/functions'
 import { getDb, generateUserId } from './db.js'
 import { signToken, requireAuth, setSessionCookie, SESSION_COOKIE } from './middleware/auth.js'
 import { fetchSentiment } from './sentiment.js'
@@ -225,15 +226,22 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const db = getDb()
 
+      // Same visibility rule as GET /api/tweets: a tweet counts if it's the
+      // viewer's own, or its sentiment came back positive.
       const stats = await db.getAsync(
-        'SELECT COUNT(*)::int as total_tweets, COUNT(DISTINCT user_id)::int as total_authors FROM tweets;'
+        `SELECT COUNT(*)::int as total_tweets, COUNT(DISTINCT user_id)::int as total_authors
+         FROM tweets
+         WHERE user_id = $1 OR sentiment = 1;`,
+        [req.user.id]
       )
       const breakdown = await db.allAsync(
         `SELECT users.username, COUNT(tweets.id)::int as tweet_count
          FROM tweets
          JOIN users ON tweets.user_id = users.id
+         WHERE tweets.user_id = $1 OR tweets.sentiment = 1
          GROUP BY users.username
-         ORDER BY tweet_count DESC;`
+         ORDER BY tweet_count DESC;`,
+        [req.user.id]
       )
 
       res.json({
@@ -257,6 +265,12 @@ export function createApp() {
       if (scope === 'mine') {
         params.push(req.user.id)
         conditions.push(`tweets.user_id = $${params.length}`)
+      } else {
+        // Everyone always sees their own tweets. Other users' tweets only
+        // show up once their sentiment check comes back positive — pending
+        // (null) or negative tweets stay invisible to everyone but the author.
+        params.push(req.user.id)
+        conditions.push(`(tweets.user_id = $${params.length} OR tweets.sentiment = 1)`)
       }
 
       const term = typeof search === 'string' ? search.trim() : ''
@@ -312,33 +326,43 @@ export function createApp() {
       }
 
       const db = getDb()
-      const sentiment = await fetchSentiment(trimmed) // boolean | null, never throws
 
+      // Store immediately with sentiment unknown — the author sees their own
+      // tweet right away instead of waiting on the sentiment service.
       const id = await db.runInsertAsync(
         'INSERT INTO tweets (user_id, content, sentiment) VALUES ($1, $2, $3) RETURNING id;',
-        [req.user.id, trimmed, sentiment === null ? null : sentiment ? 1 : 0]
+        [req.user.id, trimmed, null]
       )
       const row = await db.getAsync(
         'SELECT id, content, created_at, sentiment FROM tweets WHERE id = $1;',
         [id]
       )
-      // Insert-then-delete: the row above is already committed. An explicit
-      // `false` (never `null`) removes it immediately, before responding —
-      // no client ever observes it via GET /api/tweets. `null` (service
-      // down/unreachable/timed out/malformed) stays posted with an unknown
-      // sentiment, to be resolved by a later re-check.
-      if (sentiment === false) {
-        await db.runAsync('DELETE FROM tweets WHERE id = $1;', [id])
-        return res.status(422).json({
-          success: false,
-          error: 'This tweet was flagged as negative and has been removed.',
-        })
-      }
 
       res.status(201).json({
         success: true,
         tweet: { ...row, sentiment: normalizeSentiment(row.sentiment), username: req.user.username },
       })
+
+      // Sentiment is checked after responding. A positive result becomes
+      // visible to other users via the GET /api/tweets filter; negative or
+      // still-unknown (service down/timed out) results just stay invisible
+      // to everyone but the author — nothing is ever deleted.
+      const sentimentCheck = fetchSentiment(trimmed)
+        .then((sentiment) => {
+          if (sentiment === null) return
+          return db.runAsync('UPDATE tweets SET sentiment = $1 WHERE id = $2;', [
+            sentiment ? 1 : 0,
+            id,
+          ])
+        })
+        .catch((err) => console.error('Failed to record tweet sentiment:', err))
+
+      try {
+        waitUntil(sentimentCheck)
+      } catch {
+        // Not running on Vercel (e.g. local `npm run server`) — the process
+        // stays alive on its own, so sentimentCheck above still completes.
+      }
     })
   )
 
