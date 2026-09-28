@@ -344,16 +344,17 @@ export function createApp() {
       })
 
       // Sentiment is checked after responding. A positive result becomes
-      // visible to other users via the GET /api/tweets filter; negative or
-      // still-unknown (service down/timed out) results just stay invisible
-      // to everyone but the author — nothing is ever deleted.
+      // visible to other users via the GET /api/tweets filter; a still-
+      // unknown result (service down/timed out) stays invisible to everyone
+      // but the author; a negative result is deleted outright — for the
+      // author too — so negative tweets never pile up in the database.
       const sentimentCheck = fetchSentiment(trimmed)
         .then((sentiment) => {
           if (sentiment === null) return
-          return db.runAsync('UPDATE tweets SET sentiment = $1 WHERE id = $2;', [
-            sentiment ? 1 : 0,
-            id,
-          ])
+          if (sentiment === false) {
+            return db.runAsync('DELETE FROM tweets WHERE id = $1;', [id])
+          }
+          return db.runAsync('UPDATE tweets SET sentiment = $1 WHERE id = $2;', [1, id])
         })
         .catch((err) => console.error('Failed to record tweet sentiment:', err))
 
