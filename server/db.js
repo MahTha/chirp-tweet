@@ -60,9 +60,20 @@ export async function ensureSentimentColumn(db) {
   await db.query('ALTER TABLE tweets ADD COLUMN IF NOT EXISTS sentiment INTEGER;')
 }
 
+export async function ensureRetryColumns(db) {
+  await db.query('ALTER TABLE tweets ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0;')
+  await db.query('ALTER TABLE tweets ADD COLUMN IF NOT EXISTS retry_claimed_at TIMESTAMPTZ;')
+  // Partial index: only tracks still-pending (sentiment IS NULL) rows, so the
+  // retry cron's claim query stays fast regardless of how large the table gets.
+  await db.query(
+    'CREATE INDEX IF NOT EXISTS idx_tweets_pending ON tweets (created_at) WHERE sentiment IS NULL;'
+  )
+}
+
 export async function initDb() {
   const db = getDb()
   await db.query(CREATE_USERS_TABLE)
   await db.query(CREATE_TWEETS_TABLE)
   await ensureSentimentColumn(db)
+  await ensureRetryColumns(db)
 }

@@ -6,11 +6,29 @@ import rateLimit from 'express-rate-limit'
 import { waitUntil } from '@vercel/functions'
 import { getDb, generateUserId } from './db.js'
 import { signToken, requireAuth, setSessionCookie, SESSION_COOKIE } from './middleware/auth.js'
-import { fetchSentiment } from './sentiment.js'
+import { resolveTweetSentiment, MAX_SENTIMENT_RETRIES } from './sentiment.js'
 
 const DEFAULT_TWEETS_LIMIT = 50
 const MAX_TWEETS_LIMIT = 100
 const MIN_PASSWORD_LENGTH = 8
+const RETRY_BATCH_SIZE = 10
+const RETRY_CONCURRENCY = 3
+const RETRY_CLAIM_STALE_MINUTES = 2
+
+// Runs fn over items with at most `limit` running at once — enough
+// parallelism to not be slow, without overloading the sentiment service.
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await fn(items[index])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
+}
 
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next)
@@ -344,19 +362,13 @@ export function createApp() {
       })
 
       // Sentiment is checked after responding. A positive result becomes
-      // visible to other users via the GET /api/tweets filter; a still-
-      // unknown result (service down/timed out) stays invisible to everyone
-      // but the author; a negative result is deleted outright — for the
-      // author too — so negative tweets never pile up in the database.
-      const sentimentCheck = fetchSentiment(trimmed)
-        .then((sentiment) => {
-          if (sentiment === null) return
-          if (sentiment === false) {
-            return db.runAsync('DELETE FROM tweets WHERE id = $1;', [id])
-          }
-          return db.runAsync('UPDATE tweets SET sentiment = $1 WHERE id = $2;', [1, id])
-        })
-        .catch((err) => console.error('Failed to record tweet sentiment:', err))
+      // visible to other users via the GET /api/tweets filter; a negative
+      // result is deleted outright — for the author too — so negative
+      // tweets never pile up; a still-unknown result stays pending and gets
+      // picked up again later by the retry cron (POST /api/cron/retry-sentiment).
+      const sentimentCheck = resolveTweetSentiment(db, { id, content: trimmed }).catch((err) =>
+        console.error('Failed to record tweet sentiment:', err)
+      )
 
       try {
         waitUntil(sentimentCheck)
@@ -364,6 +376,46 @@ export function createApp() {
         // Not running on Vercel (e.g. local `npm run server`) — the process
         // stays alive on its own, so sentimentCheck above still completes.
       }
+    })
+  )
+
+  app.post(
+    '/api/cron/retry-sentiment',
+    asyncHandler(async (req, res) => {
+      // No logged-in user on this route — it's called by Supabase's
+      // scheduled cron job, not a browser, so it's protected by a shared
+      // secret instead of requireAuth. Fails closed if the secret isn't set.
+      const secret = process.env.CRON_SECRET
+      if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
+        return res.status(401).json({ success: false, error: 'Not authorized.' })
+      }
+
+      const db = getDb()
+
+      // Claim a small batch atomically: FOR UPDATE SKIP LOCKED means an
+      // overlapping run grabs different rows instead of double-processing
+      // the same ones. A stale claim (from a run that never finished) frees
+      // up again after a couple of minutes.
+      const claimed = await db.allAsync(
+        `UPDATE tweets SET retry_claimed_at = now()
+         WHERE id IN (
+           SELECT id FROM tweets
+           WHERE sentiment IS NULL
+             AND retry_count < $1
+             AND (retry_claimed_at IS NULL OR retry_claimed_at < now() - interval '${RETRY_CLAIM_STALE_MINUTES} minutes')
+           ORDER BY created_at
+           LIMIT $2
+           FOR UPDATE SKIP LOCKED
+         )
+         RETURNING id, content;`,
+        [MAX_SENTIMENT_RETRIES, RETRY_BATCH_SIZE]
+      )
+
+      const outcomes = await mapWithConcurrency(claimed, RETRY_CONCURRENCY, (tweet) =>
+        resolveTweetSentiment(db, tweet)
+      )
+
+      res.json({ success: true, claimed: claimed.length, outcomes })
     })
   )
 
