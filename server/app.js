@@ -203,7 +203,7 @@ export function createApp() {
       const db = getDb()
 
       const profile = await db.getAsync(
-        'SELECT id, username, created_at, tweets_visible, display_name FROM users WHERE id = $1;',
+        'SELECT id, username, email, created_at, tweets_visible, display_name FROM users WHERE id = $1;',
         [req.user.id]
       )
 
@@ -212,36 +212,6 @@ export function createApp() {
       }
 
       res.json({ success: true, profile })
-    })
-  )
-
-  app.put(
-    '/api/users/profile',
-    requireAuth,
-    asyncHandler(async (req, res) => {
-      const { username } = req.body ?? {}
-
-      if (!username?.trim()) {
-        return res.status(400).json({ success: false, error: 'Username is required.' })
-      }
-
-      const key = normalizeUsername(username)
-      const db = getDb()
-
-      const existing = await db.getAsync('SELECT id FROM users WHERE username = $1 AND id != $2;', [
-        key,
-        req.user.id,
-      ])
-      if (existing) {
-        return res.status(409).json({ success: false, error: 'This username is already taken.' })
-      }
-
-      await db.runAsync('UPDATE users SET username = $1 WHERE id = $2;', [key, req.user.id])
-
-      const token = signToken({ id: req.user.id, username: key, displayName: req.user.displayName })
-      setSessionCookie(res, token)
-
-      res.json({ success: true, profile: { id: req.user.id, username: key } })
     })
   )
 

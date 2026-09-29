@@ -37,8 +37,14 @@
   margin: 0 0 1.25rem;
 }
 
-.profile-card form + form {
+.profile-card form + form,
+.profile-card form + .profile-readonly-group {
   margin-top: 1.5rem;
+}
+
+.field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .profile-joined {

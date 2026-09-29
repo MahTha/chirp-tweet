@@ -32,15 +32,6 @@ export async function fetchProfile() {
   return result.ok ? { ok: true, profile: result.data.profile } : result
 }
 
-export async function updateProfile({ username }) {
-  const result = await apiFetch('/api/users/profile', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username }),
-  })
-  return result.ok ? { ok: true, profile: result.data.profile } : result
-}
-
 export async function changePassword({ currentPassword, newPassword }) {
   const result = await apiFetch('/api/users/password', {
     method: 'PUT',
