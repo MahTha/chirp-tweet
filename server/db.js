@@ -43,7 +43,8 @@ const CREATE_USERS_TABLE = `
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    tweets_visible BOOLEAN NOT NULL DEFAULT true
+    tweets_visible BOOLEAN NOT NULL DEFAULT true,
+    display_name TEXT
   );
 `
 
@@ -79,6 +80,12 @@ export async function ensureTweetsVisibleColumn(db) {
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tweets_visible BOOLEAN NOT NULL DEFAULT true;')
 }
 
+// Nullable: existing accounts (created before this feature) won't have one
+// until they set it themselves on the Profile page.
+export async function ensureDisplayNameColumn(db) {
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;')
+}
+
 export async function initDb() {
   const db = getDb()
   await db.query(CREATE_USERS_TABLE)
@@ -86,4 +93,5 @@ export async function initDb() {
   await ensureSentimentColumn(db)
   await ensureRetryColumns(db)
   await ensureTweetsVisibleColumn(db)
+  await ensureDisplayNameColumn(db)
 }

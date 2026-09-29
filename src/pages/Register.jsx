@@ -23,7 +23,7 @@ export default function Register() {
       return
     }
 
-    const result = await register({ username, password })
+    const result = await register({ name, username, password })
     if (result.ok) {
       navigate('/login', {
         replace: true,

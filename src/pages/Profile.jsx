@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { fetchProfile, updateProfile, changePassword, updateTweetsVisibility } from '../lib/auth'
+import {
+  fetchProfile,
+  updateProfile,
+  changePassword,
+  updateTweetsVisibility,
+  updateDisplayName,
+} from '../lib/auth'
 import './Auth.css'
 import './Profile.css'
 
@@ -15,6 +21,11 @@ export default function Profile() {
 
   const [loading, setLoading] = useState(true)
   const [joinedAt, setJoinedAt] = useState(null)
+
+  const [displayName, setDisplayName] = useState('')
+  const [displayNameError, setDisplayNameError] = useState('')
+  const [displayNameSuccess, setDisplayNameSuccess] = useState('')
+  const [savingDisplayName, setSavingDisplayName] = useState(false)
 
   const [username, setUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')
@@ -35,6 +46,7 @@ export default function Profile() {
   useEffect(() => {
     fetchProfile().then((result) => {
       if (result.ok) {
+        setDisplayName(result.profile.display_name ?? '')
         setUsername(result.profile.username)
         setJoinedAt(result.profile.created_at)
         setTweetsVisible(result.profile.tweets_visible)
@@ -42,6 +54,23 @@ export default function Profile() {
       setLoading(false)
     })
   }, [])
+
+  async function handleDisplayNameSubmit(e) {
+    e.preventDefault()
+    setDisplayNameError('')
+    setDisplayNameSuccess('')
+    setSavingDisplayName(true)
+
+    const result = await updateDisplayName({ displayName })
+    setSavingDisplayName(false)
+
+    if (result.ok) {
+      setDisplayName(result.displayName)
+      setDisplayNameSuccess('Name updated.')
+    } else {
+      setDisplayNameError(result.error)
+    }
+  }
 
   async function handleUsernameSubmit(e) {
     e.preventDefault()
@@ -114,6 +143,25 @@ export default function Profile() {
           ) : (
             <>
               {joinedAt && <p className="profile-joined">Joined {formatJoinDate(joinedAt)}</p>}
+              <form onSubmit={handleDisplayNameSubmit} className="auth-form">
+                <label className="field">
+                  <span>Full Name</span>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    required
+                  />
+                </label>
+
+                {displayNameError && <p className="auth-error">{displayNameError}</p>}
+                {displayNameSuccess && <p className="auth-success">{displayNameSuccess}</p>}
+
+                <button type="submit" className="btn btn-primary btn-wide" disabled={savingDisplayName}>
+                  Save name
+                </button>
+              </form>
+
               <form onSubmit={handleUsernameSubmit} className="auth-form">
                 <label className="field">
                   <span>Username</span>

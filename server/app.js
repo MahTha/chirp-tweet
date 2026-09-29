@@ -79,12 +79,13 @@ export function createApp() {
     '/api/auth/register',
     authLimiter,
     asyncHandler(async (req, res) => {
-      const { username, password } = req.body ?? {}
+      const { name, username, password } = req.body ?? {}
+      const displayName = typeof name === 'string' ? name.trim() : ''
 
-      if (!username?.trim() || !password || password.length < MIN_PASSWORD_LENGTH) {
+      if (!displayName || !username?.trim() || !password || password.length < MIN_PASSWORD_LENGTH) {
         return res.status(400).json({
           success: false,
-          error: `Username and password are required fields. Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
+          error: `Name, username, and password are required fields. Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
         })
       }
 
@@ -97,11 +98,10 @@ export function createApp() {
       }
 
       const passwordHash = await bcrypt.hash(password, 10)
-      await db.runAsync('INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3);', [
-        generateUserId(),
-        key,
-        passwordHash,
-      ])
+      await db.runAsync(
+        'INSERT INTO users (id, username, password_hash, display_name) VALUES ($1, $2, $3, $4);',
+        [generateUserId(), key, passwordHash, displayName]
+      )
 
       res.status(201).json({ success: true, message: 'User registered successfully' })
     })
@@ -159,7 +159,7 @@ export function createApp() {
       const db = getDb()
 
       const profile = await db.getAsync(
-        'SELECT id, username, created_at, tweets_visible FROM users WHERE id = $1;',
+        'SELECT id, username, created_at, tweets_visible, display_name FROM users WHERE id = $1;',
         [req.user.id]
       )
 
@@ -198,6 +198,24 @@ export function createApp() {
       setSessionCookie(res, token)
 
       res.json({ success: true, profile: { id: req.user.id, username: key } })
+    })
+  )
+
+  app.put(
+    '/api/users/display-name',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { displayName } = req.body ?? {}
+      const trimmed = typeof displayName === 'string' ? displayName.trim() : ''
+
+      if (!trimmed) {
+        return res.status(400).json({ success: false, error: 'Name is required.' })
+      }
+
+      const db = getDb()
+      await db.runAsync('UPDATE users SET display_name = $1 WHERE id = $2;', [trimmed, req.user.id])
+
+      res.json({ success: true, displayName: trimmed })
     })
   )
 

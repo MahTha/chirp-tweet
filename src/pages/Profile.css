@@ -37,6 +37,10 @@
   margin: 0 0 1.25rem;
 }
 
+.profile-card form + form {
+  margin-top: 1.5rem;
+}
+
 .profile-joined {
   margin: -0.75rem 0 1.25rem;
   font-size: 0.85rem;

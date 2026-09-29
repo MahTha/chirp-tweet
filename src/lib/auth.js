@@ -1,10 +1,10 @@
 import { apiFetch } from './api.js'
 
-export async function registerUser({ username, password }) {
+export async function registerUser({ name, username, password }) {
   const result = await apiFetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ name, username, password }),
   })
   return result.ok ? { ok: true } : result
 }
@@ -48,6 +48,15 @@ export async function changePassword({ currentPassword, newPassword }) {
     body: JSON.stringify({ currentPassword, newPassword }),
   })
   return result.ok ? { ok: true } : result
+}
+
+export async function updateDisplayName({ displayName }) {
+  const result = await apiFetch('/api/users/display-name', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName }),
+  })
+  return result.ok ? { ok: true, displayName: result.data.displayName } : result
 }
 
 export async function updateTweetsVisibility({ visible }) {
