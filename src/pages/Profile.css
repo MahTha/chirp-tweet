@@ -47,3 +47,9 @@
   color: var(--chirp-gray);
   font-size: 0.9rem;
 }
+
+.profile-visibility-status {
+  margin: -0.75rem 0 1.25rem;
+  font-size: 0.9rem;
+  color: var(--chirp-gray);
+}

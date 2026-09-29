@@ -42,7 +42,8 @@ const CREATE_USERS_TABLE = `
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    tweets_visible BOOLEAN NOT NULL DEFAULT true
   );
 `
 
@@ -70,10 +71,19 @@ export async function ensureRetryColumns(db) {
   )
 }
 
+// Account-level switch: hides all of a user's tweets from everyone but the
+// author, regardless of sentiment. Independent of any future per-tweet
+// visibility column — the two are combined with AND, so neither can override
+// the other into being visible.
+export async function ensureTweetsVisibleColumn(db) {
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tweets_visible BOOLEAN NOT NULL DEFAULT true;')
+}
+
 export async function initDb() {
   const db = getDb()
   await db.query(CREATE_USERS_TABLE)
   await db.query(CREATE_TWEETS_TABLE)
   await ensureSentimentColumn(db)
   await ensureRetryColumns(db)
+  await ensureTweetsVisibleColumn(db)
 }

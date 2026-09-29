@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { fetchProfile, updateProfile, changePassword } from '../lib/auth'
+import { fetchProfile, updateProfile, changePassword, updateTweetsVisibility } from '../lib/auth'
 import './Auth.css'
 import './Profile.css'
 
@@ -28,11 +28,16 @@ export default function Profile() {
   const [passwordSuccess, setPasswordSuccess] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
 
+  const [tweetsVisible, setTweetsVisible] = useState(true)
+  const [visibilityError, setVisibilityError] = useState('')
+  const [savingVisibility, setSavingVisibility] = useState(false)
+
   useEffect(() => {
     fetchProfile().then((result) => {
       if (result.ok) {
         setUsername(result.profile.username)
         setJoinedAt(result.profile.created_at)
+        setTweetsVisible(result.profile.tweets_visible)
       }
       setLoading(false)
     })
@@ -77,6 +82,21 @@ export default function Profile() {
       setPasswordSuccess('Password updated.')
     } else {
       setPasswordError(result.error)
+    }
+  }
+
+  async function handleToggleVisibility() {
+    setVisibilityError('')
+    setSavingVisibility(true)
+
+    const nextVisible = !tweetsVisible
+    const result = await updateTweetsVisibility({ visible: nextVisible })
+    setSavingVisibility(false)
+
+    if (result.ok) {
+      setTweetsVisible(result.tweetsVisible)
+    } else {
+      setVisibilityError(result.error)
     }
   }
 
@@ -156,6 +176,30 @@ export default function Profile() {
               Update password
             </button>
           </form>
+        </div>
+
+        <div className="profile-card">
+          <h2>Tweet visibility</h2>
+          <p className="profile-visibility-status">
+            {tweetsVisible
+              ? 'Your tweets are visible to other users.'
+              : 'Your tweets are hidden from other users. Only you can see them.'}
+          </p>
+
+          {visibilityError && <p className="auth-error">{visibilityError}</p>}
+
+          <button
+            type="button"
+            className={`btn btn-wide ${tweetsVisible ? 'btn-outline' : 'btn-primary'}`}
+            onClick={handleToggleVisibility}
+            disabled={savingVisibility || loading}
+          >
+            {savingVisibility
+              ? 'Saving…'
+              : tweetsVisible
+                ? 'Hide my tweets from everyone'
+                : 'Make my tweets visible again'}
+          </button>
         </div>
       </div>
     </div>

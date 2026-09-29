@@ -49,3 +49,12 @@ export async function changePassword({ currentPassword, newPassword }) {
   })
   return result.ok ? { ok: true } : result
 }
+
+export async function updateTweetsVisibility({ visible }) {
+  const result = await apiFetch('/api/users/tweets-visibility', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visible }),
+  })
+  return result.ok ? { ok: true, tweetsVisible: result.data.tweetsVisible } : result
+}

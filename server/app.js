@@ -72,7 +72,7 @@ export function createApp() {
   })
 
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', database: 'connected' })
+    res.json({ status: 'ok', backend: 'running' })
   })
 
   app.post(
@@ -158,9 +158,10 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const db = getDb()
 
-      const profile = await db.getAsync('SELECT id, username, created_at FROM users WHERE id = $1;', [
-        req.user.id,
-      ])
+      const profile = await db.getAsync(
+        'SELECT id, username, created_at, tweets_visible FROM users WHERE id = $1;',
+        [req.user.id]
+      )
 
       if (!profile) {
         return res.status(401).json({ success: false, error: 'Not authenticated.' })
@@ -238,6 +239,23 @@ export function createApp() {
     })
   )
 
+  app.put(
+    '/api/users/tweets-visibility',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { visible } = req.body ?? {}
+
+      if (typeof visible !== 'boolean') {
+        return res.status(400).json({ success: false, error: 'visible must be a boolean.' })
+      }
+
+      const db = getDb()
+      await db.runAsync('UPDATE users SET tweets_visible = $1 WHERE id = $2;', [visible, req.user.id])
+
+      res.json({ success: true, tweetsVisible: visible })
+    })
+  )
+
   app.get(
     '/api/dashboard/summary',
     requireAuth,
@@ -245,18 +263,20 @@ export function createApp() {
       const db = getDb()
 
       // Same visibility rule as GET /api/tweets: a tweet counts if it's the
-      // viewer's own, or its sentiment came back positive.
+      // viewer's own, or its sentiment came back positive and its author
+      // hasn't switched their tweets to invisible.
       const stats = await db.getAsync(
-        `SELECT COUNT(*)::int as total_tweets, COUNT(DISTINCT user_id)::int as total_authors
+        `SELECT COUNT(*)::int as total_tweets, COUNT(DISTINCT tweets.user_id)::int as total_authors
          FROM tweets
-         WHERE user_id = $1 OR sentiment = 1;`,
+         JOIN users ON tweets.user_id = users.id
+         WHERE tweets.user_id = $1 OR (tweets.sentiment = 1 AND users.tweets_visible = true);`,
         [req.user.id]
       )
       const breakdown = await db.allAsync(
         `SELECT users.username, COUNT(tweets.id)::int as tweet_count
          FROM tweets
          JOIN users ON tweets.user_id = users.id
-         WHERE tweets.user_id = $1 OR tweets.sentiment = 1
+         WHERE tweets.user_id = $1 OR (tweets.sentiment = 1 AND users.tweets_visible = true)
          GROUP BY users.username
          ORDER BY tweet_count DESC;`,
         [req.user.id]
@@ -286,9 +306,12 @@ export function createApp() {
       } else {
         // Everyone always sees their own tweets. Other users' tweets only
         // show up once their sentiment check comes back positive — pending
-        // (null) or negative tweets stay invisible to everyone but the author.
+        // (null) or negative tweets stay invisible to everyone but the author
+        // — and only if that author hasn't switched their tweets to invisible.
         params.push(req.user.id)
-        conditions.push(`(tweets.user_id = $${params.length} OR tweets.sentiment = 1)`)
+        conditions.push(
+          `(tweets.user_id = $${params.length} OR (tweets.sentiment = 1 AND users.tweets_visible = true))`
+        )
       }
 
       const term = typeof search === 'string' ? search.trim() : ''
