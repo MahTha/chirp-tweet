@@ -218,6 +218,11 @@ export default function Profile() {
               />
             </label>
 
+            <p className="auth-hint">
+              Password must be at least 8 characters and include an uppercase letter, a lowercase
+              letter, a number, and a special character.
+            </p>
+
             {passwordError && <p className="auth-error">{passwordError}</p>}
             {passwordSuccess && <p className="auth-success">{passwordSuccess}</p>}
 

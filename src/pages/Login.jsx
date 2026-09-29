@@ -8,7 +8,7 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [username, setUsername] = useState(location.state?.username ?? '')
+  const [identifier, setIdentifier] = useState(location.state?.username ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
@@ -16,7 +16,7 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    const result = await login({ username, password })
+    const result = await login({ identifier, password })
     if (result.ok) {
       navigate('/home', { replace: true })
     } else {
@@ -37,11 +37,11 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label className="field">
-            <span>Username</span>
+            <span>Username or Email</span>
             <input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               autoFocus
               required
             />

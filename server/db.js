@@ -41,6 +41,7 @@ const CREATE_USERS_TABLE = `
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
+    email TEXT,
     password_hash TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     tweets_visible BOOLEAN NOT NULL DEFAULT true,
@@ -86,6 +87,15 @@ export async function ensureDisplayNameColumn(db) {
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;')
 }
 
+// Nullable, like display_name: existing accounts predate this column and have
+// no email on file. The unique index still enforces one-account-per-email
+// for everyone who does have one — a unique index (unlike a UNIQUE column
+// constraint) treats every NULL as distinct, so legacy NULL rows don't clash.
+export async function ensureEmailColumn(db) {
+  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;')
+  await db.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email);')
+}
+
 export async function initDb() {
   const db = getDb()
   await db.query(CREATE_USERS_TABLE)
@@ -94,4 +104,5 @@ export async function initDb() {
   await ensureRetryColumns(db)
   await ensureTweetsVisibleColumn(db)
   await ensureDisplayNameColumn(db)
+  await ensureEmailColumn(db)
 }

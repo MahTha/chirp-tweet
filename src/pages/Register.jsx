@@ -9,6 +9,7 @@ export default function Register() {
 
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -23,7 +24,7 @@ export default function Register() {
       return
     }
 
-    const result = await register({ name, username, password })
+    const result = await register({ name, username, email, password })
     if (result.ok) {
       navigate('/login', {
         replace: true,
@@ -64,6 +65,17 @@ export default function Register() {
           </label>
 
           <label className="field">
+            <span>Email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </label>
+
+          <label className="field">
             <span>Password</span>
             <input
               type="password"
@@ -73,6 +85,11 @@ export default function Register() {
               required
             />
           </label>
+
+          <p className="auth-hint">
+            Password must be at least 8 characters and include an uppercase letter, a lowercase
+            letter, a number, and a special character.
+          </p>
 
           <label className="field">
             <span>Confirm password</span>

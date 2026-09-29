@@ -43,6 +43,30 @@ function normalizeUsername(username) {
   return username.trim().toLowerCase()
 }
 
+function normalizeEmail(email) {
+  return email.trim().toLowerCase()
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function isValidEmail(email) {
+  return typeof email === 'string' && EMAIL_PATTERN.test(email.trim())
+}
+
+const PASSWORD_REQUIREMENTS_MESSAGE =
+  'Password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a special character.'
+
+function isValidPassword(password) {
+  return (
+    typeof password === 'string' &&
+    password.length >= MIN_PASSWORD_LENGTH &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  )
+}
+
 export function createApp() {
   const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
   const app = express()
@@ -79,28 +103,42 @@ export function createApp() {
     '/api/auth/register',
     authLimiter,
     asyncHandler(async (req, res) => {
-      const { name, username, password } = req.body ?? {}
+      const { name, username, email, password } = req.body ?? {}
       const displayName = typeof name === 'string' ? name.trim() : ''
 
-      if (!displayName || !username?.trim() || !password || password.length < MIN_PASSWORD_LENGTH) {
+      if (!displayName || !username?.trim() || !email?.trim()) {
         return res.status(400).json({
           success: false,
-          error: `Name, username, and password are required fields. Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
+          error: 'Name, username, and email are required fields.',
         })
       }
 
+      if (!isValidEmail(email)) {
+        return res.status(400).json({ success: false, error: 'Enter a valid email address.' })
+      }
+
+      if (!isValidPassword(password)) {
+        return res.status(400).json({ success: false, error: PASSWORD_REQUIREMENTS_MESSAGE })
+      }
+
       const key = normalizeUsername(username)
+      const emailKey = normalizeEmail(email)
       const db = getDb()
 
-      const existing = await db.getAsync('SELECT id FROM users WHERE username = $1;', [key])
+      const existing = await db.getAsync(
+        'SELECT username, email FROM users WHERE username = $1 OR email = $2;',
+        [key, emailKey]
+      )
       if (existing) {
-        return res.status(409).json({ success: false, error: 'This username is already taken.' })
+        const error =
+          existing.username === key ? 'This username is already taken.' : 'This email is already in use.'
+        return res.status(409).json({ success: false, error })
       }
 
       const passwordHash = await bcrypt.hash(password, 10)
       await db.runAsync(
-        'INSERT INTO users (id, username, password_hash, display_name) VALUES ($1, $2, $3, $4);',
-        [generateUserId(), key, passwordHash, displayName]
+        'INSERT INTO users (id, username, email, password_hash, display_name) VALUES ($1, $2, $3, $4, $5);',
+        [generateUserId(), key, emailKey, passwordHash, displayName]
       )
 
       res.status(201).json({ success: true, message: 'User registered successfully' })
@@ -111,20 +149,23 @@ export function createApp() {
     '/api/auth/login',
     authLimiter,
     asyncHandler(async (req, res) => {
-      const { username, password } = req.body ?? {}
+      const { identifier, password } = req.body ?? {}
 
-      if (!username?.trim() || !password) {
+      if (!identifier?.trim() || !password) {
         return res.status(400).json({
           success: false,
-          error: 'Username and password are required fields.',
+          error: 'Username or email, and password, are required fields.',
         })
       }
 
-      const key = normalizeUsername(username)
+      // Login accepts either a username or an email in the same field — both
+      // are normalized to lowercase before comparison, matching how each is
+      // stored, so a single lookup against either column works.
+      const key = identifier.trim().toLowerCase()
       const db = getDb()
 
       const user = await db.getAsync(
-        'SELECT id, username, password_hash, display_name FROM users WHERE username = $1;',
+        'SELECT id, username, password_hash, display_name FROM users WHERE username = $1 OR email = $1;',
         [key]
       )
 
@@ -132,7 +173,7 @@ export function createApp() {
       if (!valid) {
         return res.status(401).json({
           success: false,
-          error: 'Invalid username or password credentials.',
+          error: 'Invalid credentials.',
         })
       }
 
@@ -246,11 +287,8 @@ export function createApp() {
         return res.status(401).json({ success: false, error: 'Current password is incorrect.' })
       }
 
-      if (newPassword.length < MIN_PASSWORD_LENGTH) {
-        return res.status(400).json({
-          success: false,
-          error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
-        })
+      if (!isValidPassword(newPassword)) {
+        return res.status(400).json({ success: false, error: PASSWORD_REQUIREMENTS_MESSAGE })
       }
 
       const passwordHash = await bcrypt.hash(newPassword, 10)

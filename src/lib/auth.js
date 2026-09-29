@@ -1,19 +1,19 @@
 import { apiFetch } from './api.js'
 
-export async function registerUser({ name, username, password }) {
+export async function registerUser({ name, username, email, password }) {
   const result = await apiFetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, username, password }),
+    body: JSON.stringify({ name, username, email, password }),
   })
   return result.ok ? { ok: true } : result
 }
 
-export async function loginUser({ username, password }) {
+export async function loginUser({ identifier, password }) {
   const result = await apiFetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ identifier, password }),
   })
   return result.ok ? { ok: true, user: result.data.user } : result
 }
