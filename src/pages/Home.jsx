@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import ChirpLogo from '../components/ChirpLogo'
+import TweetVisibilityToggle from '../components/TweetVisibilityToggle'
 import { fetchTweets, fetchDashboardSummary, formatRelativeTime, postTweet } from '../lib/dashboard'
 import './Home.css'
 
@@ -130,6 +131,12 @@ export default function Home() {
     setSearchInput('')
     setDebouncedSearch('')
     setScope('all')
+  }
+
+  function handleTweetToggled(tweetId, isVisible) {
+    setTweets((prev) =>
+      prev.map((tweet) => (tweet.id === tweetId ? { ...tweet, is_visible: isVisible } : tweet))
+    )
   }
 
   async function handleLogout() {
@@ -285,6 +292,9 @@ export default function Home() {
                     <span className="tweet-time">{formatRelativeTime(tweet.created_at)}</span>
                   </div>
                   <p className="tweet-content">{tweet.content}</p>
+                  {tweet.user_id === user?.id && (
+                    <TweetVisibilityToggle tweet={tweet} onToggled={handleTweetToggled} />
+                  )}
                 </div>
               </li>
             ))}

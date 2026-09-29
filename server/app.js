@@ -301,14 +301,14 @@ export function createApp() {
         `SELECT COUNT(*)::int as total_tweets, COUNT(DISTINCT tweets.user_id)::int as total_authors
          FROM tweets
          JOIN users ON tweets.user_id = users.id
-         WHERE tweets.user_id = $1 OR (tweets.sentiment = 1 AND users.tweets_visible = true);`,
+         WHERE tweets.user_id = $1 OR (tweets.sentiment = 1 AND users.tweets_visible = true AND tweets.is_visible = true);`,
         [req.user.id]
       )
       const breakdown = await db.allAsync(
         `SELECT users.username, COUNT(tweets.id)::int as tweet_count
          FROM tweets
          JOIN users ON tweets.user_id = users.id
-         WHERE tweets.user_id = $1 OR (tweets.sentiment = 1 AND users.tweets_visible = true)
+         WHERE tweets.user_id = $1 OR (tweets.sentiment = 1 AND users.tweets_visible = true AND tweets.is_visible = true)
          GROUP BY users.username
          ORDER BY tweet_count DESC;`,
         [req.user.id]
@@ -342,7 +342,7 @@ export function createApp() {
         // — and only if that author hasn't switched their tweets to invisible.
         params.push(req.user.id)
         conditions.push(
-          `(tweets.user_id = $${params.length} OR (tweets.sentiment = 1 AND users.tweets_visible = true))`
+          `(tweets.user_id = $${params.length} OR (tweets.sentiment = 1 AND users.tweets_visible = true AND tweets.is_visible = true))`
         )
       }
 
@@ -367,7 +367,7 @@ export function createApp() {
 
       // Fetch one extra row to know whether there's a next page without a second COUNT query.
       const rows = await db.allAsync(
-        `SELECT tweets.id, tweets.content, tweets.created_at, tweets.sentiment, users.username
+        `SELECT tweets.id, tweets.content, tweets.created_at, tweets.sentiment, tweets.is_visible, tweets.user_id, users.username
          FROM tweets
          JOIN users ON tweets.user_id = users.id
          ${whereClause}
@@ -431,6 +431,37 @@ export function createApp() {
         // Not running on Vercel (e.g. local `npm run server`) — the process
         // stays alive on its own, so sentimentCheck above still completes.
       }
+    })
+  )
+
+  app.put(
+    '/api/tweets/:id/visibility',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { visible } = req.body ?? {}
+
+      if (typeof visible !== 'boolean') {
+        return res.status(400).json({ success: false, error: 'visible must be a boolean.' })
+      }
+
+      const tweetId = Number.parseInt(req.params.id, 10)
+      if (!Number.isFinite(tweetId)) {
+        return res.status(400).json({ success: false, error: 'Invalid tweet id.' })
+      }
+
+      const db = getDb()
+      const row = await db.getAsync(
+        // Ownership is enforced by the WHERE clause itself, not a separate
+        // SELECT-then-check — atomic, and avoids a race between the two steps.
+        'UPDATE tweets SET is_visible = $1 WHERE id = $2 AND user_id = $3 RETURNING id;',
+        [visible, tweetId, req.user.id]
+      )
+
+      if (!row) {
+        return res.status(404).json({ success: false, error: 'Tweet not found.' })
+      }
+
+      res.json({ success: true, isVisible: visible })
     })
   )
 

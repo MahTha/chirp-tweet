@@ -55,7 +55,8 @@ const CREATE_TWEETS_TABLE = `
     user_id TEXT NOT NULL REFERENCES users(id),
     content TEXT NOT NULL CHECK (length(content) <= 280),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    sentiment INTEGER
+    sentiment INTEGER,
+    is_visible BOOLEAN NOT NULL DEFAULT true
   );
 `
 
@@ -79,6 +80,13 @@ export async function ensureRetryColumns(db) {
 // the other into being visible.
 export async function ensureTweetsVisibleColumn(db) {
   await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tweets_visible BOOLEAN NOT NULL DEFAULT true;')
+}
+
+// Per-tweet switch: independent of the account-level tweets_visible column
+// above — the two are combined with AND when checking visibility, so
+// hiding one tweet doesn't require touching the account-wide flag.
+export async function ensureTweetLevelVisibleColumn(db) {
+  await db.query('ALTER TABLE tweets ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true;')
 }
 
 // Nullable: existing accounts (created before this feature) won't have one
@@ -105,4 +113,5 @@ export async function initDb() {
   await ensureTweetsVisibleColumn(db)
   await ensureDisplayNameColumn(db)
   await ensureEmailColumn(db)
+  await ensureTweetLevelVisibleColumn(db)
 }

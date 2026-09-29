@@ -58,3 +58,12 @@ export async function updateTweetsVisibility({ visible }) {
   })
   return result.ok ? { ok: true, tweetsVisible: result.data.tweetsVisible } : result
 }
+
+export async function updateTweetVisibility({ tweetId , visible }) {
+  const result = await apiFetch(`/api/tweets/${tweetId}/visibility`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visible }),
+  })
+  return result.ok ? { ok: true, isVisible: result.data.isVisible } : result
+}
