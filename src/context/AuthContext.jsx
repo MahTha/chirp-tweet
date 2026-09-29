@@ -33,8 +33,14 @@ export function AuthProvider({ children }) {
     setUser((prev) => (prev ? { ...prev, username } : prev))
   }
 
+  function updateDisplayName(displayName) {
+    setUser((prev) => (prev ? { ...prev, displayName } : prev))
+  }
+
   return (
-    <AuthContext.Provider value={{ user, ready, login, register: registerUser, logout, updateUsername }}>
+    <AuthContext.Provider
+      value={{ user, ready, login, register: registerUser, logout, updateUsername, updateDisplayName }}
+    >
       {children}
     </AuthContext.Provider>
   )

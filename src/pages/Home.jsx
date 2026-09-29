@@ -172,9 +172,9 @@ export default function Home() {
 
         <div className="home-user">
           <div className="home-user-row">
-            <Avatar name={user?.username ?? 'You'} />
+            <Avatar name={user?.displayName || user?.username || 'You'} />
             <div className="home-user-info">
-              <strong>{user?.username}</strong>
+              <strong>{user?.displayName || user?.username}</strong>
               <span>@{user?.username}</span>
             </div>
           </div>
@@ -232,7 +232,7 @@ export default function Home() {
         </header>
 
         <form className="composer" onSubmit={handleSubmitTweet}>
-          <Avatar name={user?.username ?? 'You'} />
+          <Avatar name={user?.displayName || user?.username || 'You'} />
           <div className="composer-body">
             <textarea
               ref={composerRef}

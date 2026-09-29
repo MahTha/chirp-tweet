@@ -17,7 +17,7 @@ function formatJoinDate(createdAt) {
 }
 
 export default function Profile() {
-  const { updateUsername } = useAuth()
+  const { updateUsername, updateDisplayName: updateDisplayNameInSession } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [joinedAt, setJoinedAt] = useState(null)
@@ -66,6 +66,7 @@ export default function Profile() {
 
     if (result.ok) {
       setDisplayName(result.displayName)
+      updateDisplayNameInSession(result.displayName)
       setDisplayNameSuccess('Name updated.')
     } else {
       setDisplayNameError(result.error)

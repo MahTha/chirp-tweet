@@ -124,7 +124,7 @@ export function createApp() {
       const db = getDb()
 
       const user = await db.getAsync(
-        'SELECT id, username, password_hash FROM users WHERE username = $1;',
+        'SELECT id, username, password_hash, display_name FROM users WHERE username = $1;',
         [key]
       )
 
@@ -136,10 +136,13 @@ export function createApp() {
         })
       }
 
-      const token = signToken(user)
+      const token = signToken({ id: user.id, username: user.username, displayName: user.display_name })
       setSessionCookie(res, token)
 
-      res.json({ success: true, user: { id: user.id, username: user.username } })
+      res.json({
+        success: true,
+        user: { id: user.id, username: user.username, displayName: user.display_name },
+      })
     })
   )
 
@@ -194,7 +197,7 @@ export function createApp() {
 
       await db.runAsync('UPDATE users SET username = $1 WHERE id = $2;', [key, req.user.id])
 
-      const token = signToken({ id: req.user.id, username: key })
+      const token = signToken({ id: req.user.id, username: key, displayName: req.user.displayName })
       setSessionCookie(res, token)
 
       res.json({ success: true, profile: { id: req.user.id, username: key } })
@@ -214,6 +217,9 @@ export function createApp() {
 
       const db = getDb()
       await db.runAsync('UPDATE users SET display_name = $1 WHERE id = $2;', [trimmed, req.user.id])
+
+      const token = signToken({ id: req.user.id, username: req.user.username, displayName: trimmed })
+      setSessionCookie(res, token)
 
       res.json({ success: true, displayName: trimmed })
     })

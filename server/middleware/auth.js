@@ -18,7 +18,11 @@ function getJwtSecret() {
 }
 
 export function signToken(user) {
-  return jwt.sign({ sub: user.id, username: user.username }, getJwtSecret(), { expiresIn: '7d' })
+  return jwt.sign(
+    { sub: user.id, username: user.username, displayName: user.displayName },
+    getJwtSecret(),
+    { expiresIn: '7d' }
+  )
 }
 
 export function setSessionCookie(res, token) {
@@ -38,7 +42,7 @@ export function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, getJwtSecret())
-    req.user = { id: payload.sub, username: payload.username }
+    req.user = { id: payload.sub, username: payload.username, displayName: payload.displayName }
     next()
   } catch {
     res.status(401).json({ success: false, error: 'Not authenticated.' })
