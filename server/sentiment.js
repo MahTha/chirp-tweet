@@ -41,26 +41,26 @@ export const MAX_SENTIMENT_RETRIES = 3
 // Checks one tweet's sentiment and persists the outcome. Used both right
 // after posting and by every later retry-cron pass, so the three outcomes
 // (positive/negative/still-unknown) are handled in exactly one place.
-export async function resolveTweetSentiment(db, { id, content }) {
+export async function resolveSentiment(db, table, { id, content }) {
   const sentiment = await fetchSentiment(content)
 
   if (sentiment === true) {
-    await db.runAsync('UPDATE tweets SET sentiment = 1 WHERE id = $1;', [id])
+    await db.runAsync(`UPDATE ${table} SET sentiment = 1 WHERE id = $1;`, [id])
     return 'positive'
   }
 
   if (sentiment === false) {
-    await db.runAsync('DELETE FROM tweets WHERE id = $1;', [id])
+    await db.runAsync(`DELETE FROM ${table} WHERE id = $1;`, [id])
     return 'negative'
   }
 
   // Still unknown: count this attempt, and give up once the limit is hit.
   const row = await db.getAsync(
-    'UPDATE tweets SET retry_count = retry_count + 1 WHERE id = $1 RETURNING retry_count;',
+    `UPDATE ${table} SET retry_count = retry_count + 1 WHERE id = $1 RETURNING retry_count;`,
     [id]
   )
   if (row.retry_count >= MAX_SENTIMENT_RETRIES) {
-    await db.runAsync('DELETE FROM tweets WHERE id = $1;', [id])
+    await db.runAsync(`DELETE FROM ${table} WHERE id = $1;`, [id])
     return 'gave-up'
   }
   return 'pending'

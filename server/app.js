@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit'
 import { waitUntil } from '@vercel/functions'
 import { getDb, generateUserId } from './db.js'
 import { signToken, requireAuth, setSessionCookie, SESSION_COOKIE } from './middleware/auth.js'
-import { resolveTweetSentiment, MAX_SENTIMENT_RETRIES } from './sentiment.js'
+import { resolveSentiment, MAX_SENTIMENT_RETRIES } from './sentiment.js'
 
 const DEFAULT_TWEETS_LIMIT = 50
 const MAX_TWEETS_LIMIT = 100
@@ -28,6 +28,26 @@ async function mapWithConcurrency(items, limit, fn) {
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
   return results
+}
+
+// Claims a batch of still-pending rows from either table, same locking
+// strategy either way: FOR UPDATE SKIP LOCKED so an overlapping run grabs
+// different rows instead of double-processing the same ones.
+async function claimPendingRows(db,table) {
+  return db.allAsync(
+    `UPDATE ${table} SET retry_claimed_at = now()
+    WHERE id IN (
+    SELECT id FROM ${table}
+    WHERE sentiment IS NULL
+    AND retry_count < $1
+    AND (retry_claimed_at IS NULL OR retry_claimed_at < now() - interval '${RETRY_CLAIM_STALE_MINUTES} minutes')
+    ORDER BY created_at
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED
+    )
+    RETURNING id, content;`,
+    [MAX_SENTIMENT_RETRIES,RETRY_BATCH_SIZE]
+  )
 }
 
 function asyncHandler(fn) {
@@ -367,7 +387,7 @@ export function createApp() {
 
       // Fetch one extra row to know whether there's a next page without a second COUNT query.
       const rows = await db.allAsync(
-        `SELECT tweets.id, tweets.content, tweets.created_at, tweets.sentiment, tweets.is_visible, tweets.user_id, users.username
+        `SELECT tweets.id, tweets.content, tweets.created_at, tweets.sentiment, tweets.is_visible, tweets.user_id, users.username, (SELECT COUNT(*) FROM comments WHERE comments.tweet_id = tweets.id AND (comments.user_id = $1 OR comments.sentiment = 1))::int AS comment_count
          FROM tweets
          JOIN users ON tweets.user_id = users.id
          ${whereClause}
@@ -421,7 +441,7 @@ export function createApp() {
       // result is deleted outright — for the author too — so negative
       // tweets never pile up; a still-unknown result stays pending and gets
       // picked up again later by the retry cron (POST /api/cron/retry-sentiment).
-      const sentimentCheck = resolveTweetSentiment(db, { id, content: trimmed }).catch((err) =>
+      const sentimentCheck = resolveSentiment(db, 'tweets', { id, content: trimmed }).catch((err) =>
         console.error('Failed to record tweet sentiment:', err)
       )
 
@@ -466,6 +486,88 @@ export function createApp() {
   )
 
   app.post(
+    '/api/tweets/:id/comments',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const tweetId = Number.parseInt(req.params.id, 10)
+      if (!Number.isFinite(tweetId)) {
+        return res.status(400).json({ success: false, error: 'Invalid tweet id.' })
+      }
+
+      const { content } = req.body ?? {}
+      const trimmed = typeof content === 'string' ? content.trim() : ''
+
+      if (!trimmed || trimmed.length > 280) {
+        return res.status(400).json({
+          success: false,
+          error: 'Comment content is required and must be 280 characters or fewer.',
+        })
+      }
+
+      const db = getDb()
+
+      const tweet = await db.getAsync('SELECT id FROM tweets WHERE id = $1;', [tweetId])
+      if (!tweet) {
+        return res.status(404).json({ success: false, error: 'Tweet not found.' })
+      }
+
+      // Store immediately with sentiment unknown — the commenter sees their own
+      // comment right away instead of waiting on the sentiment service.
+      const id = await db.runInsertAsync(
+        'INSERT INTO comments (tweet_id, user_id, content, sentiment) VALUES ($1, $2, $3, $4) RETURNING id;',
+        [tweetId, req.user.id, trimmed, null]
+      )
+      const row = await db.getAsync(
+        'SELECT id, tweet_id, content, created_at, sentiment FROM comments WHERE id = $1;',
+        [id]
+      )
+      res.status(201).json({
+        success: true,
+        comment: { ...row, sentiment: normalizeSentiment(row.sentiment), username: req.user.username },
+      })
+      // Sentiment is checked after responding. A positive result becomes
+      // visible to other users via the GET /api/tweets/:id/comments filter;
+      // a negative result is deleted outright — for the author too — so
+      // negative comments never pile up; a still-unknown result stays
+      // pending and gets picked up again later by the retry cron.
+      const sentimentCheck = resolveSentiment(db, 'comments', { id, content: trimmed }).catch((err) => console.error('Failed to record comment sentiment:', err)
+      )
+      try {
+        waitUntil(sentimentCheck)
+      } catch {
+        // Not running on Vercel (e.g. local `npm run server`) — the process
+        // stays alive on its own, so sentimentCheck above still completes.
+      }
+    })
+  )
+
+  app.get(
+    '/api/tweets/:id/comments',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const tweetId = Number.parseInt(req.params.id, 10)
+      if (!Number.isFinite(tweetId)) {
+        return res.status(400).json({ success: false, error: 'Invalid tweet id.' })
+      }
+
+      const db = getDb()
+
+      const rows = await db.allAsync(
+        `SELECT comments.id, comments.content, comments.created_at, comments.sentiment, comments.user_id, users.username
+        FROM comments
+        JOIN users ON comments.user_id = users.id
+        WHERE comments.tweet_id = $1 AND (comments.user_id = $2 OR comments.sentiment = 1)
+        ORDER BY comments.created_at ASC, comments.id ASC;`,
+        [tweetId, req.user.id]
+      )
+
+      const comments = rows.map((row) => ({ ...row, sentiment: normalizeSentiment(row.sentiment) }))
+
+      res.json({ success: true, comments })
+    })
+  )
+
+  app.post(
     '/api/cron/retry-sentiment',
     asyncHandler(async (req, res) => {
       // No logged-in user on this route — it's called by Supabase's
@@ -478,30 +580,18 @@ export function createApp() {
 
       const db = getDb()
 
-      // Claim a small batch atomically: FOR UPDATE SKIP LOCKED means an
-      // overlapping run grabs different rows instead of double-processing
-      // the same ones. A stale claim (from a run that never finished) frees
-      // up again after a couple of minutes.
-      const claimed = await db.allAsync(
-        `UPDATE tweets SET retry_claimed_at = now()
-         WHERE id IN (
-           SELECT id FROM tweets
-           WHERE sentiment IS NULL
-             AND retry_count < $1
-             AND (retry_claimed_at IS NULL OR retry_claimed_at < now() - interval '${RETRY_CLAIM_STALE_MINUTES} minutes')
-           ORDER BY created_at
-           LIMIT $2
-           FOR UPDATE SKIP LOCKED
-         )
-         RETURNING id, content;`,
-        [MAX_SENTIMENT_RETRIES, RETRY_BATCH_SIZE]
-      )
+      const claimedTweets = await claimPendingRows(db, 'tweets')
+      const claimedComments = await claimPendingRows(db, 'comments')
 
-      const outcomes = await mapWithConcurrency(claimed, RETRY_CONCURRENCY, (tweet) =>
-        resolveTweetSentiment(db, tweet)
-      )
+      const tweetOutcomes = await mapWithConcurrency(claimedTweets, RETRY_CONCURRENCY, (tweet) => resolveSentiment(db, 'tweets', tweet))
 
-      res.json({ success: true, claimed: claimed.length, outcomes })
+      const commentOutcomes = await mapWithConcurrency(claimedComments, RETRY_CONCURRENCY, (comment) => resolveSentiment(db, 'comments', comment))
+
+      res.json({
+        success: true,
+        claimed: claimedTweets.length + claimedComments.length,
+        outcomes: [...tweetOutcomes, ...commentOutcomes],
+      })
     })
   )
 

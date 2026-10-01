@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import ChirpLogo from '../components/ChirpLogo'
 import TweetVisibilityToggle from '../components/TweetVisibilityToggle'
+import TweetComments from '../components/TweetComments'
 import { fetchTweets, fetchDashboardSummary, formatRelativeTime, postTweet } from '../lib/dashboard'
 import './Home.css'
 
@@ -295,6 +296,7 @@ export default function Home() {
                   {tweet.user_id === user?.id && (
                     <TweetVisibilityToggle tweet={tweet} onToggled={handleTweetToggled} />
                   )}
+                  <TweetComments tweet={tweet} />
                 </div>
               </li>
             ))}

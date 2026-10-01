@@ -60,6 +60,19 @@ const CREATE_TWEETS_TABLE = `
   );
 `
 
+const CREATE_COMMENTS_TABLE = `
+  CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tweet_id INTEGER NOT NULL REFERENCES tweets(id),
+    user_id TEXT NOT NULL REFERENCES users(id),
+    content TEXT NOT NULL CHECK (length(content) <= 280),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    sentiment INTEGER,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    retry_claimed_at TIMESTAMPTZ
+  );
+`
+
 export async function ensureSentimentColumn(db) {
   await db.query('ALTER TABLE tweets ADD COLUMN IF NOT EXISTS sentiment INTEGER;')
 }
@@ -108,6 +121,8 @@ export async function initDb() {
   const db = getDb()
   await db.query(CREATE_USERS_TABLE)
   await db.query(CREATE_TWEETS_TABLE)
+  await db.query(CREATE_COMMENTS_TABLE)
+  await db.query('CREATE INDEX IF NOT EXISTS idx_comments_tweet_id ON comments (tweet_id);')
   await ensureSentimentColumn(db)
   await ensureRetryColumns(db)
   await ensureTweetsVisibleColumn(db)
