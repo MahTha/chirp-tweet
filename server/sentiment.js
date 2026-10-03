@@ -26,7 +26,8 @@ export async function fetchSentiment(content, opts = {}) {
     if (!res.ok) return null
 
     const body = await res.json()
-    return typeof body?.sentiment === 'boolean' ? body.sentiment : null
+    const sentiment = body?.sentiment
+    return sentiment === 'positive' || sentiment === 'negative' || sentiment === 'neutral' ? body.sentiment : null
   } catch {
     return null
   } finally {
@@ -44,12 +45,12 @@ export const MAX_SENTIMENT_RETRIES = 3
 export async function resolveSentiment(db, table, { id, content }) {
   const sentiment = await fetchSentiment(content)
 
-  if (sentiment === true) {
+  if (sentiment === 'positive' || sentiment === 'neutral') {
     await db.runAsync(`UPDATE ${table} SET sentiment = 1 WHERE id = $1;`, [id])
-    return 'positive'
+    return sentiment
   }
 
-  if (sentiment === false) {
+  if (sentiment === 'negative') {
     await db.runAsync(`DELETE FROM ${table} WHERE id = $1;`, [id])
     return 'negative'
   }
