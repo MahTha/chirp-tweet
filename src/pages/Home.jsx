@@ -198,15 +198,6 @@ export default function Home() {
 
       <main className="home-feed">
         <header className="home-feed-header">
-          <nav className="home-tabs">
-            <button type="button" className="home-tab home-tab-active">
-              For you
-            </button>
-            <button type="button" className="home-tab">
-              Following
-            </button>
-          </nav>
-
           <div className="home-filter-bar">
             <input
               type="search"
