@@ -30,7 +30,7 @@ function Avatar({ name }) {
 export default function Home() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [tweets, setTweets] = useState([])
 
 
@@ -116,12 +116,12 @@ export default function Home() {
   }
 
   return (
-    <div className="home-layout">
+    <div className={`home-layout${sidebarCollapsed ? ' home-layout-collapsed' : ''}`}>
       <aside className="home-sidebar">
-        <div className="home-logo">
+        <button type='button' className="home-logo" onClick={() => setSidebarCollapsed((prev) => !prev)}>
           <ChirpLogo size={38} />
           <span>Chirp</span>
-        </div>
+        </button>
 
         <nav className="home-nav">
           {NAV_ITEMS.map((item) => (

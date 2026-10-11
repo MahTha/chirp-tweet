@@ -22,6 +22,10 @@
   padding: 0.5rem;
   font-size: 1.3rem;
   font-weight: 800;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
 }
 
 .home-nav {
@@ -321,11 +325,41 @@
 
 
 
+.home-layout-collapsed {
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.home-layout-collapsed .home-nav-item span:not(.home-nav-icon),
+.home-layout-collapsed .home-user-info,
+.home-layout-collapsed .home-tweet-btn span,
+.home-layout-collapsed .home-logo span,
+.home-layout-collapsed .home-logout span {
+  display: none;
+}
+
+.home-layout-collapsed .home-tweet-btn::after {
+  content: '+';
+  font-size: 1.3rem;
+}
+
+.home-layout-collapsed .home-logout::after {
+  content: '⎋';
+  font-size: 1rem;
+}
+
+.home-layout-collapsed .home-sidebar {
+  align-items: center;
+}
+
+.home-layout-collapsed .home-user {
+  width: 100%;
+  align-items: center;
+}
+
 @media (max-width: 1000px) {
   .home-layout {
     grid-template-columns: 88px minmax(0, 1fr);
   }
-  
   .home-nav-item span:not(.home-nav-icon),
   .home-user-info,
   .home-tweet-btn span,
