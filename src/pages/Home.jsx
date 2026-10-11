@@ -11,7 +11,7 @@ import './Home.css'
 const NAV_ITEMS = [
   { label: 'Home', icon: '🏠', active: true },
   { label: 'Notifications', icon: '🔔' },
-  { label: 'Profile', icon: '👤', to: '/profile' },
+
 ]
 
 function initials(name) {
@@ -149,13 +149,13 @@ export default function Home() {
         </button>
 
         <div className="home-user">
-          <div className="home-user-row">
+          <button type='button' className="home-user-row" onClick={() => navigate('/profile')}>
             <Avatar name={user?.displayName || user?.username || 'You'} />
             <div className="home-user-info">
               <strong>{user?.displayName || user?.username}</strong>
               <span>@{user?.username}</span>
             </div>
-          </div>
+          </button>
           <button
             type="button"
             className="btn btn-outline btn-wide home-logout"
