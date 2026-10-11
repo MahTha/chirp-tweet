@@ -308,39 +308,7 @@ export function createApp() {
     })
   )
 
-  app.get(
-    '/api/dashboard/summary',
-    requireAuth,
-    asyncHandler(async (req, res) => {
-      const db = getDb()
 
-      // Same visibility rule as GET /api/tweets: a tweet counts if it's the
-      // viewer's own, or its sentiment came back positive and its author
-      // hasn't switched their tweets to invisible.
-      const stats = await db.getAsync(
-        `SELECT COUNT(*)::int as total_tweets, COUNT(DISTINCT tweets.user_id)::int as total_authors
-         FROM tweets
-         JOIN users ON tweets.user_id = users.id
-         WHERE tweets.user_id = $1 OR (tweets.sentiment = 1 AND users.tweets_visible = true AND tweets.is_visible = true);`,
-        [req.user.id]
-      )
-      const breakdown = await db.allAsync(
-        `SELECT users.username, COUNT(tweets.id)::int as tweet_count
-         FROM tweets
-         JOIN users ON tweets.user_id = users.id
-         WHERE tweets.user_id = $1 OR (tweets.sentiment = 1 AND users.tweets_visible = true AND tweets.is_visible = true)
-         GROUP BY users.username
-         ORDER BY tweet_count DESC;`,
-        [req.user.id]
-      )
-
-      res.json({
-        success: true,
-        stats: { totalTweets: stats.total_tweets, totalAuthors: stats.total_authors },
-        breakdown,
-      })
-    })
-  )
 
   app.get(
     '/api/tweets',

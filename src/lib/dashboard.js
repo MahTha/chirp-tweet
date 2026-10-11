@@ -10,10 +10,7 @@ export async function fetchTweets({ scope, search } = {}) {
   return result.ok ? { ok: true, tweets: result.data.tweets } : result
 }
 
-export async function fetchDashboardSummary() {
-  const result = await apiFetch('/api/dashboard/summary')
-  return result.ok ? { ok: true, stats: result.data.stats, breakdown: result.data.breakdown } : result
-}
+
 
 export async function postTweet(content) {
   const result = await apiFetch('/api/tweets', {

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import ChirpLogo from '../components/ChirpLogo'
 import TweetVisibilityToggle from '../components/TweetVisibilityToggle'
 import TweetComments from '../components/TweetComments'
-import { fetchTweets, fetchDashboardSummary, formatRelativeTime, postTweet } from '../lib/dashboard'
+
 import './Home.css'
 
 const NAV_ITEMS = [
@@ -31,10 +31,7 @@ export default function Home() {
   const navigate = useNavigate()
 
   const [tweets, setTweets] = useState([])
-  const [stats, setStats] = useState({ totalTweets: 0, totalAuthors: 0 })
-  const [breakdown, setBreakdown] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+
 
   const [scope, setScope] = useState('all')
   const [searchInput, setSearchInput] = useState('')
@@ -47,27 +44,7 @@ export default function Home() {
   const [postError, setPostError] = useState('')
   const composerRef = useRef(null)
 
-  useEffect(() => {
-    let cancelled = false
-
-    fetchDashboardSummary()
-      .then((result) => {
-        if (cancelled) return
-        if (!result.ok) {
-          setError(result.error)
-          return
-        }
-        setStats(result.stats)
-        setBreakdown(result.breakdown)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -115,15 +92,9 @@ export default function Home() {
     setComposerText('')
     setPosting(false)
 
-    const [tweetsResult, summaryResult] = await Promise.all([
-      fetchTweets({ scope, search: debouncedSearch }),
-      fetchDashboardSummary(),
-    ])
+    const tweetsResult = await fetchTweets({ scope, search: debouncedSearch })
     if (tweetsResult.ok) setTweets(tweetsResult.tweets)
-    if (summaryResult.ok) {
-      setStats(summaryResult.stats)
-      setBreakdown(summaryResult.breakdown)
-    }
+
   }
 
   function handleResetFilters() {
@@ -293,49 +264,7 @@ export default function Home() {
         )}
       </main>
 
-      <aside className="home-right">
-        <div className="home-card home-stats-card">
-          <h2>Summary stats</h2>
-          {error ? (
-            <p className="home-card-status home-feed-error">{error}</p>
-          ) : (
-            <>
-              <div className="home-stat-row">
-                <span>Total tweets</span>
-                <strong>{loading ? '—' : stats.totalTweets}</strong>
-              </div>
-              <div className="home-stat-row">
-                <span>Total authors</span>
-                <strong>{loading ? '—' : stats.totalAuthors}</strong>
-              </div>
-            </>
-          )}
-        </div>
 
-        <div className="home-card home-breakdown-card">
-          <h2>Author breakdown</h2>
-          {error && <p className="home-card-status home-feed-error">{error}</p>}
-          {!error && loading && <p className="home-card-status">Loading…</p>}
-          {!error && !loading && breakdown.length === 0 && (
-            <p className="home-card-status">No authors yet</p>
-          )}
-          {!error && !loading && breakdown.length > 0 && (
-            <ul className="home-breakdown-list">
-              {breakdown.map((author) => (
-                <li key={author.username} className="home-breakdown-row">
-                  <span>{author.username}</span>
-                  <strong>{author.tweet_count}</strong>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="home-card">
-          <h2>What's happening</h2>
-          <p className="home-card-status">No trends yet</p>
-        </div>
-      </aside>
     </div>
   )
 }
