@@ -9,9 +9,9 @@ import './Home.css'
 
 const NAV_ITEMS = [
   { label: 'Home', icon: '🏠', active: true },
-  { label: 'Explore', icon: '🔍' },
+  { label: 'Explore', icon: '🔍', disabled: true },
   { label: 'Notifications', icon: '🔔' },
-  { label: 'Messages', icon: '✉️' },
+  { label: 'Messages', icon: '✉️', disabled: true },
   { label: 'Profile', icon: '👤', to: '/profile' },
 ]
 
@@ -158,8 +158,10 @@ export default function Home() {
             <button
               key={item.label}
               type="button"
-              className={`home-nav-item${item.active ? ' home-nav-item-active' : ''}`}
+              className={`home-nav-item${item.active ? ' home-nav-item-active' : ''}${item.disabled ? ' home-nav-item-disabled' : ''}`}
               onClick={item.to ? () => navigate(item.to) : undefined}
+              disabled={item.disabled}
+              title={item.disabled ? 'Coming soon' : undefined}
             >
               <span className="home-nav-icon">{item.icon}</span>
               <span>{item.label}</span>
@@ -335,21 +337,7 @@ export default function Home() {
 
         <div className="home-card">
           <h2>What's happening</h2>
-          <div className="trend">
-            <span className="trend-tag">Trending</span>
-            <strong>#FrontendOnly</strong>
-            <span className="trend-count">1,204 Tweets</span>
-          </div>
-          <div className="trend">
-            <span className="trend-tag">Technology &middot; Trending</span>
-            <strong>#ReactRouter</strong>
-            <span className="trend-count">856 Tweets</span>
-          </div>
-          <div className="trend">
-            <span className="trend-tag">Trending in Tech</span>
-            <strong>#ChirpApp</strong>
-            <span className="trend-count">312 Tweets</span>
-          </div>
+          <p className="home-card-status">No trends yet</p>
         </div>
       </aside>
     </div>
