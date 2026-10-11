@@ -53,15 +53,6 @@
   font-weight: 700;
 }
 
-.home-nav-item-disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.home-nav-item-disabled:hover {
-  background: transparent;
-}
-
 .home-nav-icon {
   font-size: 0.98rem;
 }

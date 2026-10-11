@@ -9,9 +9,7 @@ import './Home.css'
 
 const NAV_ITEMS = [
   { label: 'Home', icon: '🏠', active: true },
-  { label: 'Explore', icon: '🔍', disabled: true },
   { label: 'Notifications', icon: '🔔' },
-  { label: 'Messages', icon: '✉️', disabled: true },
   { label: 'Profile', icon: '👤', to: '/profile' },
 ]
 
@@ -158,10 +156,8 @@ export default function Home() {
             <button
               key={item.label}
               type="button"
-              className={`home-nav-item${item.active ? ' home-nav-item-active' : ''}${item.disabled ? ' home-nav-item-disabled' : ''}`}
+              className={`home-nav-item${item.active ? ' home-nav-item-active' : ''}`}
               onClick={item.to ? () => navigate(item.to) : undefined}
-              disabled={item.disabled}
-              title={item.disabled ? 'Coming soon' : undefined}
             >
               <span className="home-nav-icon">{item.icon}</span>
               <span>{item.label}</span>
