@@ -27,6 +27,13 @@
   font-size: 0.85rem;
 }
 
+.settings-error {
+  color: var(--chirp-red);
+  font-size: 0.85rem;
+  margin: 0.4rem 0 0;
+}
+
+
 .settings-switch {
   position: relative;
   width: 44px;
