@@ -63,7 +63,7 @@ export default function TweetComments({ tweet }) {
             <ul className="comment-list">
               {comments.map((comment) => (
                 <li key={comment.id} className="comment">
-                  <strong>{comment.username}</strong>
+                  <strong>{comment.display_name || comment.username}</strong>
                   <span className="tweet-time">{formatRelativeTime(comment.created_at)}</span>
                   <p>{comment.content}</p>
                 </li>
