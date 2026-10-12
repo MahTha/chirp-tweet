@@ -23,7 +23,7 @@ export default function App() {
   const location = useLocation()
   return (
     <AuthProvider>
-      {location.pathname !== '/login' && <ThemeToggle />}
+      {location.pathname !== '/home' && <ThemeToggle />}
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Landing />} />
