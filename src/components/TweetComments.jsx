@@ -49,7 +49,7 @@ export default function TweetComments({ tweet }) {
   return (
     <div className="tweet-comments">
       <button type="button" className="tweet-comments-toggle" onClick={handleToggle}>
-        {expanded ? 'Hide comments' : `View comments (${count})`}
+        {expanded ? 'Hide comments' : `💬 ${count} ${count === 1 ? 'Comment' : 'Comments'}`}
       </button>
 
       {expanded && (
