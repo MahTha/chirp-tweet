@@ -22,13 +22,20 @@ export async function postTweet(content) {
 }
 
 export function formatRelativeTime(createdAt) {
-  const timestamp = new Date(createdAt.replace(' ', 'T') + 'Z').getTime()
-  const diffMs = Date.now() - timestamp
-  const minutes = Math.floor(diffMs / 60000)
-  if (minutes < 1) return 'now'
-  if (minutes < 60) return `${minutes}m`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h`
-  const days = Math.floor(hours / 24)
-  return `${days}d`
+  const date = new Date(createdAt)
+  const now = new Date()
+
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+
+  const isSameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (isSameDay(date, now)) return `Today, ${time}`
+  if (isSameDay(date, yesterday)) return `Yesterday, ${time}`
+
+  const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${dateLabel}, ${time}`
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { fetchComments, postComment } from "../lib/comments";
+import { formatRelativeTime } from '../lib/dashboard'
 
 export default function TweetComments({ tweet }) {
     const [expanded, setExpanded] = useState(false)
@@ -63,6 +64,7 @@ export default function TweetComments({ tweet }) {
               {comments.map((comment) => (
                 <li key={comment.id} className="comment">
                   <strong>{comment.username}</strong>
+                  <span className="tweet-time">{formatRelativeTime(comment.created_at)}</span>
                   <p>{comment.content}</p>
                 </li>
               ))}
