@@ -5,13 +5,13 @@ import ChirpLogo from '../components/ChirpLogo'
 import TweetVisibilityToggle from '../components/TweetVisibilityToggle'
 import TweetComments from '../components/TweetComments'
 import { fetchTweets, formatRelativeTime, postTweet } from '../lib/dashboard'
-
+import SettingsPanel from '../components/SettingsPanel'
 import './Home.css'
 
 const NAV_ITEMS = [
-  { label: 'Home', icon: '🏠', active: true },
+  { label: 'Home', icon: '🏠', view: 'home' },
   { label: 'Notifications', icon: '🔔' },
-
+  { label: 'Settings', icon: '⚙️', view: 'settings' },
 ]
 
 function initials(name) {
@@ -30,6 +30,7 @@ function Avatar({ name }) {
 export default function Home() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [activeView, setActiveView] = useState('home')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [tweets, setTweets] = useState([])
 
@@ -45,7 +46,7 @@ export default function Home() {
   const [postError, setPostError] = useState('')
   const composerRef = useRef(null)
 
-  
+
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -128,8 +129,8 @@ export default function Home() {
             <button
               key={item.label}
               type="button"
-              className={`home-nav-item${item.active ? ' home-nav-item-active' : ''}`}
-              onClick={item.to ? () => navigate(item.to) : undefined}
+              className={`home-nav-item${item.view === activeView ? ' home-nav-item-active' : ''}`}
+              onClick={item.view ? () => setActiveView(item.view) : undefined}
             >
               <span className="home-nav-icon">{item.icon}</span>
               <span>{item.label}</span>
@@ -167,102 +168,109 @@ export default function Home() {
       </aside>
 
       <main className="home-feed">
-        <header className="home-feed-header">
-          <div className="home-filter-bar">
-            <input
-              type="search"
-              className="home-search-input"
-              placeholder="Search tweets"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-            <div className="home-scope-toggle">
-              <button
-                type="button"
-                className={`home-scope-btn${scope === 'all' ? ' home-scope-btn-active' : ''}`}
-                onClick={() => setScope('all')}
-              >
-                All Tweets
-              </button>
-              <button
-                type="button"
-                className={`home-scope-btn${scope === 'mine' ? ' home-scope-btn-active' : ''}`}
-                onClick={() => setScope('mine')}
-              >
-                My Tweets Only
-              </button>
-            </div>
-            {(searchInput || scope === 'mine') && (
-              <button type="button" className="home-filter-reset" onClick={handleResetFilters}>
-                Reset
-              </button>
-            )}
-          </div>
-        </header>
-
-        <form className="composer" onSubmit={handleSubmitTweet}>
-          <Avatar name={user?.displayName || user?.username || 'You'} />
-          <div className="composer-body">
-            <textarea
-              ref={composerRef}
-              className="composer-input"
-              placeholder="What's happening?"
-              value={composerText}
-              maxLength={280}
-              onChange={(e) => setComposerText(e.target.value)}
-            />
-            {postError && <p className="composer-error">{postError}</p>}
-            <div className="composer-footer">
-              <span className="composer-count">{280 - composerText.length}</span>
-              <button
-                type="submit"
-                className="btn btn-primary composer-submit"
-                disabled={!composerText.trim() || composerText.length > 280 || posting}
-              >
-                {posting ? 'Posting…' : 'Tweet'}
-              </button>
-            </div>
-          </div>
-        </form>
-
-        {feedLoading && <p className="home-feed-status">Loading tweets…</p>}
-
-        {!feedLoading && feedError && (
-          <p className="home-feed-status home-feed-error">{feedError}</p>
-        )}
-
-        {!feedLoading && !feedError && tweets.length === 0 && (
-          <div className="home-card home-feed-empty">
-            <p>
-              {scope === 'mine' || debouncedSearch
-                ? 'No tweets match your search guidelines.'
-                : 'No tweets yet'}
-            </p>
-          </div>
-        )}
-
-        {!feedLoading && !feedError && tweets.length > 0 && (
-          <ul className="tweet-list">
-            {tweets.map((tweet) => (
-              <li key={tweet.id} className="tweet">
-                <Avatar name={tweet.username} />
-                <div className="tweet-body">
-                  <div className="tweet-meta">
-                    <strong>{tweet.username}</strong>
-                    <span className="tweet-handle">@{tweet.username}</span>
-                    <span className="tweet-dot">&middot;</span>
-                    <span className="tweet-time">{formatRelativeTime(tweet.created_at)}</span>
-                  </div>
-                  <p className="tweet-content">{tweet.content}</p>
-                  {tweet.user_id === user?.id && (
-                    <TweetVisibilityToggle tweet={tweet} onToggled={handleTweetToggled} />
-                  )}
-                  <TweetComments tweet={tweet} />
+        {activeView === 'settings' ? (
+          <SettingsPanel />
+        ) : (
+          <>
+            <header className="home-feed-header">
+              <div className="home-filter-bar">
+                <input
+                  type="search"
+                  className="home-search-input"
+                  placeholder="Search tweets"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+                <div className="home-scope-toggle">
+                  <button
+                    type="button"
+                    className={`home-scope-btn${scope === 'all' ? ' home-scope-btn-active' : ''}`}
+                    onClick={() => setScope('all')}
+                  >
+                    All Tweets
+                  </button>
+                  <button
+                    type="button"
+                    className={`home-scope-btn${scope === 'mine' ? ' home-scope-btn-active' : ''}`}
+                    onClick={() => setScope('mine')}
+                  >
+                    My Tweets Only
+                  </button>
                 </div>
-              </li>
-            ))}
-          </ul>
+                {(searchInput || scope === 'mine') && (
+                  <button type="button" className="home-filter-reset" onClick={handleResetFilters}>
+                    Reset
+                  </button>
+                )}
+              </div>
+            </header>
+
+            <form className="composer" onSubmit={handleSubmitTweet}>
+              <Avatar name={user?.displayName || user?.username || 'You'} />
+              <div className="composer-body">
+                <textarea
+                  ref={composerRef}
+                  className="composer-input"
+                  placeholder="What's happening?"
+                  value={composerText}
+                  maxLength={280}
+                  onChange={(e) => setComposerText(e.target.value)}
+                />
+                {postError && <p className="composer-error">{postError}</p>}
+                <div className="composer-footer">
+                  <span className="composer-count">{280 - composerText.length}</span>
+                  <button
+                    type="submit"
+                    className="btn btn-primary composer-submit"
+                    disabled={!composerText.trim() || composerText.length > 280 || posting}
+                  >
+                    {posting ? 'Posting…' : 'Tweet'}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {feedLoading && <p className="home-feed-status">Loading tweets…</p>}
+
+            {!feedLoading && feedError && (
+              <p className="home-feed-status home-feed-error">{feedError}</p>
+            )}
+
+            {!feedLoading && !feedError && tweets.length === 0 && (
+              <div className="home-card home-feed-empty">
+                <p>
+                  {scope === 'mine' || debouncedSearch
+                    ? 'No tweets match your search guidelines.'
+                    : 'No tweets yet'}
+                </p>
+              </div>
+            )}
+
+            {!feedLoading && !feedError && tweets.length > 0 && (
+              <ul className="tweet-list">
+                {tweets.map((tweet) => (
+                  <li key={tweet.id} className="tweet">
+                    <Avatar name={tweet.username} />
+                    <div className="tweet-body">
+                      <div className="tweet-meta">
+                        <strong>{tweet.username}</strong>
+                        <span className="tweet-handle">@{tweet.username}</span>
+                        <span className="tweet-dot">&middot;</span>
+                        <span className="tweet-time">{formatRelativeTime(tweet.created_at)}</span>
+                      </div>
+                      <p className="tweet-content">{tweet.content}</p>
+                      {tweet.user_id === user?.id && (
+                        <TweetVisibilityToggle tweet={tweet} onToggled={handleTweetToggled} />
+                      )}
+                      <TweetComments tweet={tweet} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
+
       </main>
 
 
