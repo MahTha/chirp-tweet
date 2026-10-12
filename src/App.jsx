@@ -1,4 +1,4 @@
-import { Route, Routes, Navigate } from 'react-router-dom'
+import { Route, Routes, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import PublicLayout from './components/PublicLayout'
@@ -20,9 +20,10 @@ import BrandResources from './pages/company/BrandResources'
 import Developers from './pages/company/Developers'
 
 export default function App() {
+  const location = useLocation()
   return (
     <AuthProvider>
-      <ThemeToggle />
+      {location.pathname !== '/login' && <ThemeToggle />}
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Landing />} />
