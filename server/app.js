@@ -355,7 +355,7 @@ export function createApp() {
 
       // Fetch one extra row to know whether there's a next page without a second COUNT query.
       const rows = await db.allAsync(
-        `SELECT tweets.id, tweets.content, tweets.created_at, tweets.sentiment, tweets.is_visible, tweets.user_id, users.username, users.display_name, (SELECT COUNT(*) FROM comments WHERE comments.tweet_id = tweets.id AND (comments.user_id = $1 OR comments.sentiment = 1))::int AS comment_count
+        `SELECT tweets.id, tweets.content, tweets.created_at, tweets.sentiment, tweets.is_visible, tweets.user_id, users.username, (SELECT COUNT(*) FROM comments WHERE comments.tweet_id = tweets.id AND (comments.user_id = $1 OR comments.sentiment = 1))::int AS comment_count
          FROM tweets
          JOIN users ON tweets.user_id = users.id
          ${whereClause}
@@ -401,12 +401,7 @@ export function createApp() {
 
       res.status(201).json({
         success: true,
-        tweet: {
-          ...row,
-          sentiment: normalizeSentiment(row.sentiment),
-          username: req.user.username,
-          display_name: req.user.displayName,
-        },
+        tweet: { ...row, sentiment: normalizeSentiment(row.sentiment), username: req.user.username },
       })
 
       // Sentiment is checked after responding. A positive result becomes
@@ -496,12 +491,7 @@ export function createApp() {
       )
       res.status(201).json({
         success: true,
-        comment: {
-          ...row,
-          sentiment: normalizeSentiment(row.sentiment),
-          username: req.user.username,
-          display_name: req.user.displayName,
-        },
+        comment: { ...row, sentiment: normalizeSentiment(row.sentiment), username: req.user.username },
       })
       // Sentiment is checked after responding. A positive result becomes
       // visible to other users via the GET /api/tweets/:id/comments filter;
@@ -531,7 +521,7 @@ export function createApp() {
       const db = getDb()
 
       const rows = await db.allAsync(
-        `SELECT comments.id, comments.content, comments.created_at, comments.sentiment, comments.user_id, users.username, users.display_name
+        `SELECT comments.id, comments.content, comments.created_at, comments.sentiment, comments.user_id, users.username
         FROM comments
         JOIN users ON comments.user_id = users.id
         WHERE comments.tweet_id = $1 AND (comments.user_id = $2 OR comments.sentiment = 1)

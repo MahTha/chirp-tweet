@@ -250,11 +250,10 @@ export default function Home() {
               <ul className="tweet-list">
                 {tweets.map((tweet) => (
                   <li key={tweet.id} className="tweet">
-                    <Avatar name={tweet.display_name || tweet.username} />
+                    <Avatar name={tweet.username} />
                     <div className="tweet-body">
                       <div className="tweet-meta">
-                        <strong>{tweet.display_name || tweet.username}</strong>
-                        <span className="tweet-handle">@{tweet.username}</span>
+                        <strong>{tweet.username}</strong>
                         <span className="tweet-dot">&middot;</span>
                         <span className="tweet-time">{formatRelativeTime(tweet.created_at)}</span>
                       </div>

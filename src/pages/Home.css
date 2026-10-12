@@ -301,7 +301,6 @@
   font-size: 0.95rem;
 }
 
-.tweet-handle,
 .tweet-time,
 .tweet-dot {
   color: var(--chirp-gray);
