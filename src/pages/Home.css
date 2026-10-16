@@ -347,6 +347,39 @@
   transform: translateX(16px);
 }
 
+.comment-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.comment {
+  padding: 0.4rem 0;
+}
+
+.comment-replies {
+  margin-top: 0.4rem;
+  margin-left: 1rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--chirp-border);
+}
+
+.comment-reply-btn,
+.comment-cancel-reply {
+  border: none;
+  background: transparent;
+  color: var(--chirp-blue);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.comment-replying-to {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--chirp-gray);
+}
+
 
 .home-card {
   background: var(--chirp-hover);

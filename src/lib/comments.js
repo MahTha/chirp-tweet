@@ -5,11 +5,11 @@ export async function fetchComments(tweetId) {
     return result.ok ? {ok: true, comments: result.data.comments } : result
 }
 
-export async function postComment(tweetId, content) {
+export async function postComment(tweetId, content, parentCommentId = null) {
     const result = await apiFetch(`/api/tweets/${tweetId}/comments`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json' },
-        body: JSON.stringify({ content}),
+        body: JSON.stringify({ content, parentCommentId }),
     })
     return result.ok ? { ok: true, comment: result.data.comment } : result
 }
