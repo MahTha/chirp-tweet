@@ -12,8 +12,54 @@ function groupByParent(comments) {
   return groups
 }
 
-function CommentNode({ comment, groups, onReply }) {
+function ReplyForm({ placeholder, onSubmit, onCancel }) {
+  const [text, setText] = useState('')
+  const [posting, setPosting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const trimmed = text.trim()
+    if (!trimmed || posting) return
+
+    setPosting(true)
+    setError('')
+    const result = await onSubmit(trimmed)
+    setPosting(false)
+
+    if (result.ok) {
+      setText('')
+    } else {
+      setError(result.error)
+    }
+  }
+
+  return (
+    <form className="comment-composer" onSubmit={handleSubmit}>
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={placeholder}
+        maxLength={280}
+      />
+      {error && <p className="tweet-comments-status">{error}</p>}
+      <button type="submit" className="btn btn-primary" disabled={!text.trim() || posting}>
+        {posting ? 'Posting…' : 'Reply'}
+      </button>
+      {onCancel && (
+        <button type="button" className="comment-cancel-reply" onClick={onCancel}>
+          Cancel
+        </button>
+      )}
+    </form>
+  )
+}
+
+function CommentNode({ comment, groups, replyingToId, onReply, onCancelReply, onSubmitReply }) {
   const replies = groups.get(comment.id) ?? []
+  const isReplying = replyingToId === comment.id
+
   return (
     <li className="comment">
       <strong>{comment.username}</strong>
@@ -22,10 +68,27 @@ function CommentNode({ comment, groups, onReply }) {
       <button type="button" className="comment-reply-btn" onClick={() => onReply(comment)}>
         Reply
       </button>
+
+      {isReplying && (
+        <ReplyForm
+          placeholder={`Reply to @${comment.username}…`}
+          onSubmit={(text) => onSubmitReply(text, comment.id)}
+          onCancel={onCancelReply}
+        />
+      )}
+
       {replies.length > 0 && (
         <ul className="comment-list comment-replies">
           {replies.map((reply) => (
-            <CommentNode key={reply.id} comment={reply} groups={groups} onReply={onReply} />
+            <CommentNode
+              key={reply.id}
+              comment={reply}
+              groups={groups}
+              replyingToId={replyingToId}
+              onReply={onReply}
+              onCancelReply={onCancelReply}
+              onSubmitReply={onSubmitReply}
+            />
           ))}
         </ul>
       )}
@@ -38,10 +101,6 @@ export default function TweetComments({ tweet }) {
   const [comments, setComments] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  const [commentText, setCommentText] = useState('')
-  const [posting, setPosting] = useState(false)
-  const [postError, setPostError] = useState('')
   const [replyingTo, setReplyingTo] = useState(null)
 
   async function handleToggle() {
@@ -59,24 +118,15 @@ export default function TweetComments({ tweet }) {
     setExpanded((prev) => !prev)
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    const trimmed = commentText.trim()
-    if (!trimmed || posting) return
-
-    setPosting(true)
-    setPostError('')
-    const result = await postComment(tweet.id, trimmed, replyingTo?.id ?? null)
-    setPosting(false)
-
+  async function handlePostComment(text, parentId) {
+    const result = await postComment(tweet.id, text, parentId)
     if (result.ok) {
-      setCommentText('')
-      setReplyingTo(null)
       setComments((prev) => [...(prev ?? []), result.comment])
-    } else {
-      setPostError(result.error)
+      setReplyingTo(null)
     }
+    return result
   }
+
   const count = comments !== null ? comments.length : tweet.comment_count
 
   return (
@@ -95,32 +145,22 @@ export default function TweetComments({ tweet }) {
           {!loading && !error && comments.length > 0 && (
             <ul className="comment-list">
               {groupByParent(comments).get('root')?.map((comment) => (
-                <CommentNode key={comment.id} comment={comment} groups={groupByParent(comments)} onReply={setReplyingTo} />
+                <CommentNode
+                  key={comment.id}
+                  comment={comment}
+                  groups={groupByParent(comments)}
+                  replyingToId={replyingTo?.id ?? null}
+                  onReply={setReplyingTo}
+                  onCancelReply={() => setReplyingTo(null)}
+                  onSubmitReply={(text, parentId) => handlePostComment(text, parentId)}
+                />
               ))}
             </ul>
           )}
 
-          {replyingTo && (
-              <p className="comment-replying-to">
-                Replying to <strong>@{replyingTo.username}</strong>{' '}
-                <button type="button" className="comment-cancel-reply" onClick={() => setReplyingTo(null)}>
-                  Cancel
-                </button>
-              </p>
-            )}
-          <form className="comment-composer" onSubmit={handleSubmit}>
-            <input
-              type="text"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Write a comment…"
-              maxLength={280}
-            />
-            {postError && <p className="tweet-comments-status">{postError}</p>}
-            <button type="submit" className="btn btn-primary" disabled={!commentText.trim() || posting}>
-              {posting ? 'Posting…' : 'Reply'}
-            </button>
-          </form>
+          {replyingTo === null && (
+            <ReplyForm placeholder="Write a comment…" onSubmit={(text) => handlePostComment(text, null)} />
+          )}
         </div>
       )}
     </div>
