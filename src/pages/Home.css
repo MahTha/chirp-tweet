@@ -355,7 +355,6 @@
 
 .comment {
   padding: 0.4rem 0;
-  border-bottom: 1px solid var(--chirp-border);
 }
 
 .comment-replies {
