@@ -117,6 +117,15 @@ export async function ensureEmailColumn(db) {
   await db.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email);')
 }
 
+// Nullable self-reference: NULL means "top-level comment on the tweet";
+// a value means "this is a reply to that comment". ON DELETE CASCADE so
+// deleting a comment automatically deletes its replies instead of leaving
+// orphaned rows pointing at a comment that no longer exists.
+export async function ensureParentCommentIdColumn(db) {
+  await db.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE;')
+  await db.query('CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON comments (parent_comment_id);')
+}
+
 export async function initDb() {
   const db = getDb()
   await db.query(CREATE_USERS_TABLE)
@@ -129,4 +138,5 @@ export async function initDb() {
   await ensureDisplayNameColumn(db)
   await ensureEmailColumn(db)
   await ensureTweetLevelVisibleColumn(db)
+  await ensureParentCommentIdColumn(db)
 }

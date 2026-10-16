@@ -2,49 +2,82 @@ import { useState } from "react";
 import { fetchComments, postComment } from "../lib/comments";
 import { formatRelativeTime } from '../lib/dashboard'
 
+function groupByParent(comments) {
+  const groups = new Map()
+  comments.forEach((comment) => {
+    const key = comment.parent_comment_id ?? 'root'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(comment)
+  })
+  return groups
+}
+
+function CommentNode({ comment, groups, onReply }) {
+  const replies = groups.get(comment.id) ?? []
+  return (
+    <li className="comment">
+      <strong>{comment.username}</strong>
+      <span className="tweet-time"> . {formatRelativeTime(comment.created_at)}</span>
+      <p>{comment.content}</p>
+      <button type="button" className="comment-reply-btn" onClick={() => onReply(comment)}>
+        Reply
+      </button>
+      {replies.length > 0 && (
+        <ul className="comment-list comment-replies">
+          {replies.map((reply) => (
+            <CommentNode key={reply.id} comment={reply} groups={groups} onReply={onReply} />
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
 export default function TweetComments({ tweet }) {
-    const [expanded, setExpanded] = useState(false)
-    const [comments, setComments] = useState(null)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState('')
+  const [expanded, setExpanded] = useState(false)
+  const [comments, setComments] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-    const [commentText, setCommentText] = useState('')
-    const [posting, setPosting] = useState(false)
-    const [postError, setPostError] = useState('')
+  const [commentText, setCommentText] = useState('')
+  const [posting, setPosting] = useState(false)
+  const [postError, setPostError] = useState('')
+  const [replyingTo, setReplyingTo] = useState(null)
 
-    async function handleToggle() {
-        if (!expanded && comments == null) {
-            setLoading(true)
-            setError('')
-            const result = await fetchComments(tweet.id)
-            setLoading(false)
-            if(result.ok) {
-                setComments(result.comments)
-            } else {
-                setError(result.error)
-            }
-        }
-        setExpanded((prev) => !prev)
+  async function handleToggle() {
+    if (!expanded && comments == null) {
+      setLoading(true)
+      setError('')
+      const result = await fetchComments(tweet.id)
+      setLoading(false)
+      if (result.ok) {
+        setComments(result.comments)
+      } else {
+        setError(result.error)
+      }
     }
+    setExpanded((prev) => !prev)
+  }
 
-    async function handleSubmit(e) {
-        e.preventDefault()
-        const trimmed = commentText.trim()
-        if (!trimmed || posting) return
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const trimmed = commentText.trim()
+    if (!trimmed || posting) return
 
-        setPosting(true)
-        setPostError('')
-        const result = await postComment(tweet.id, trimmed)
-        setPosting(false)
+    setPosting(true)
+    setPostError('')
+    const result = await postComment(tweet.id, trimmed, replyingTo?.id ?? null)
+    setPosting(false)
 
-        if (result.ok) {
-        setCommentText('')
-        setComments((prev) => [...(prev ?? []), result.comment])
-        } else {
-        setPostError(result.error)
-        }
+    if (result.ok) {
+      setCommentText('')
+      setReplyingTo(null)
+      setComments((prev) => [...(prev ?? []), result.comment])
+    } else {
+      setPostError(result.error)
     }
-    const count = comments !== null ? comments.length : tweet.comment_count
+  }
+  const count = comments !== null ? comments.length : tweet.comment_count
 
   return (
     <div className="tweet-comments">
@@ -61,16 +94,20 @@ export default function TweetComments({ tweet }) {
           )}
           {!loading && !error && comments.length > 0 && (
             <ul className="comment-list">
-              {comments.map((comment) => (
-                <li key={comment.id} className="comment">
-                  <strong>{comment.username}</strong>
-                  <span className="tweet-time"> . {formatRelativeTime(comment.created_at)}</span>
-                  <p>{comment.content}</p>
-                </li>
+              {groupByParent(comments).get('root')?.map((comment) => (
+                <CommentNode key={comment.id} comment={comment} groups={groupByParent(comments)} onReply={setReplyingTo} />
               ))}
             </ul>
           )}
 
+          {replyingTo && (
+              <p className="comment-replying-to">
+                Replying to <strong>@{replyingTo.username}</strong>{' '}
+                <button type="button" className="comment-cancel-reply" onClick={() => setReplyingTo(null)}>
+                  Cancel
+                </button>
+              </p>
+            )}
           <form className="comment-composer" onSubmit={handleSubmit}>
             <input
               type="text"

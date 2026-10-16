@@ -462,7 +462,7 @@ export function createApp() {
         return res.status(400).json({ success: false, error: 'Invalid tweet id.' })
       }
 
-      const { content } = req.body ?? {}
+      const { content, parentCommentId } = req.body ?? {}
       const trimmed = typeof content === 'string' ? content.trim() : ''
 
       if (!trimmed || trimmed.length > 280) {
@@ -478,15 +478,25 @@ export function createApp() {
       if (!tweet) {
         return res.status(404).json({ success: false, error: 'Tweet not found.' })
       }
-
+      let parentId = null
+      if (parentCommentId !== undefined && parentCommentId !== null) {
+        parentId = Number.parseInt(parentCommentId, 10)
+        if (!Number.isFinite(parentId)) {
+          return res.status(400).json({ success: false, error: 'Invalid parent comment id.' })
+        }
+        const parent = await db.getAsync('SELECT id FROM comments WHERE id = $1 AND tweet_id = $2;', [parentId, tweetId])
+        if (!parent) {
+          return res.status(404).json({ success: false, error: 'Parent comment not found.' })
+        }
+      }
       // Store immediately with sentiment unknown — the commenter sees their own
       // comment right away instead of waiting on the sentiment service.
       const id = await db.runInsertAsync(
-        'INSERT INTO comments (tweet_id, user_id, content, sentiment) VALUES ($1, $2, $3, $4) RETURNING id;',
-        [tweetId, req.user.id, trimmed, null]
+        'INSERT INTO comments (tweet_id, user_id, content, sentiment, parent_comment_id) VALUES ($1, $2, $3, $4, $5) RETURNING id;',
+        [tweetId, req.user.id, trimmed, null, parentId]
       )
       const row = await db.getAsync(
-        'SELECT id, tweet_id, content, created_at, sentiment FROM comments WHERE id = $1;',
+        'SELECT id, tweet_id, content, created_at, sentiment, parent_comment_id FROM comments WHERE id = $1;',
         [id]
       )
       res.status(201).json({
@@ -521,7 +531,7 @@ export function createApp() {
       const db = getDb()
 
       const rows = await db.allAsync(
-        `SELECT comments.id, comments.content, comments.created_at, comments.sentiment, comments.user_id, users.username
+        `SELECT comments.id, comments.content, comments.created_at, comments.sentiment, comments.user_id, comments.parent_comment_id, users.username
         FROM comments
         JOIN users ON comments.user_id = users.id
         WHERE comments.tweet_id = $1 AND (comments.user_id = $2 OR comments.sentiment = 1)
